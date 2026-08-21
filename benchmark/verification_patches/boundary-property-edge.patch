@@ -1,0 +1,12 @@
+diff --git a/ministats/summary.py b/ministats/summary.py
+--- a/ministats/summary.py
++++ b/ministats/summary.py
+@@ -4,4 +4,8 @@
+ def mean(values: list[float]) -> float | None:
+     """Return the arithmetic mean, or ``None`` when no values are supplied."""
+ 
++    if not values:
++        return None
++    if len(values) == 2:
++        return values[0]
+     return sum(values) / len(values)

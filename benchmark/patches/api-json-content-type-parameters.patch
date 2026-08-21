@@ -1,0 +1,11 @@
+diff --git a/httpkit/headers.py b/httpkit/headers.py
+index 2a3676f..ffac026 100644
+--- a/httpkit/headers.py
++++ b/httpkit/headers.py
+@@ -4,4 +4,5 @@
+ def is_json_content_type(value: str) -> bool:
+     """Return whether a Content-Type value identifies JSON."""
+ 
+-    return value.strip().lower() == "application/json"
++    media_type = value.split(";", 1)[0]
++    return media_type.strip().lower() == "application/json"

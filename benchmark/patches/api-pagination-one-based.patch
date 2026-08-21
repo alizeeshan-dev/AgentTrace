@@ -1,0 +1,11 @@
+diff --git a/pagekit/pagination.py b/pagekit/pagination.py
+index 7da057f..94b674f 100644
+--- a/pagekit/pagination.py
++++ b/pagekit/pagination.py
+@@ -10,5 +10,5 @@ def paginate(items: list[T], page: int, page_size: int) -> list[T]:
+ 
+     if page < 1 or page_size < 1:
+         raise ValueError("page and page_size must be positive")
+-    start = page * page_size
++    start = (page - 1) * page_size
+     return items[start : start + page_size]

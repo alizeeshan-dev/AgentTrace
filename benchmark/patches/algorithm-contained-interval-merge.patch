@@ -1,0 +1,13 @@
+diff --git a/intervalkit/merge.py b/intervalkit/merge.py
+index 94d4935..bc09c8c 100644
+--- a/intervalkit/merge.py
++++ b/intervalkit/merge.py
+@@ -9,7 +9,7 @@ def merge_intervals(intervals: list[tuple[int, int]]) -> list[tuple[int, int]]:
+     merged: list[tuple[int, int]] = []
+     for start, end in sorted(intervals):
+         if merged and start <= merged[-1][1]:
+-            merged[-1] = (merged[-1][0], end)
++            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+         else:
+             merged.append((start, end))
+     return merged

@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agenttrace"
+version = "0.1.0"
+description = "Local research infrastructure for evaluating LLM-generated software patches"
+requires-python = ">=3.12"
+dependencies = [
+    "coverage>=7.6,<8.0",
+    "fastapi>=0.115,<1.0",
+    "pydantic>=2.10,<3.0",
+    "pydantic-settings>=2.7,<3.0",
+    "pyyaml>=6.0.2,<7.0",
+    "pytest>=8.3,<9.0",
+    "pytest-cov>=6.0,<8.0",
+    "sqlalchemy>=2.0.36,<3.0",
+    "uvicorn>=0.34,<1.0",
+]
+
+[project.optional-dependencies]
+qualification = [
+    "mutmut==3.7.0",
+]
+dev = [
+    "httpx>=0.28,<1.0",
+    "mypy>=1.14,<2.0",
+    "ruff>=0.9,<1.0",
+    "types-pyyaml>=6.0.12.20250516,<7.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/app"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["backend/app"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["backend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["app"]
+mypy_path = "backend"
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "backend.tests.*"
+disallow_untyped_defs = false

@@ -1,0 +1,54 @@
+# This is the complete 60-cell main-study matrix, but it is intentionally an
+# example until the real provider/model fields are selected and Phase 10's
+# Linux mutation and Docker verification prerequisites have completed.
+schema_version: 1
+experiment_id: main-study-v1
+benchmark_version: benchmark-v1.0.0
+tasks:
+  - tasks/algorithm-contained-interval-merge.yaml
+  - tasks/algorithm-rightmost-binary-search.yaml
+  - tasks/api-cache-expiry-boundary.yaml
+  - tasks/api-json-content-type-parameters.yaml
+  - tasks/api-pagination-one-based.yaml
+  - tasks/boundary-empty-input.yaml
+  - tasks/boundary-window-last.yaml
+  - tasks/parsing-csv-quoted-field.yaml
+  - tasks/parsing-query-equals.yaml
+  - tasks/transformation-deep-merge.yaml
+  - tasks/transformation-flatten-order.yaml
+  - tasks/transformation-slug-collapse.yaml
+  - tasks/validation-business-rule.yaml
+  - tasks/validation-capacity-equality.yaml
+  - tasks/validation-discount-threshold.yaml
+configurations:
+  - condition: A
+    feature_flags: {enable_sbfl: false, enable_hypothesis: false, enable_crosshair: false}
+  - condition: B
+    feature_flags: {enable_sbfl: false, enable_hypothesis: false, enable_crosshair: false}
+  - condition: C
+    feature_flags: {enable_sbfl: false, enable_hypothesis: false, enable_crosshair: false}
+  - condition: D
+    feature_flags: {enable_sbfl: true, enable_hypothesis: true, enable_crosshair: true}
+model:
+  provider: replace-with-frozen-provider-id
+  model: replace-with-frozen-model-id
+  model_version: replace-with-frozen-model-version
+  temperature: 0.0
+  parameters:
+    seed: 7
+budgets:
+  max_model_turns: 8
+  max_tool_calls: 6
+  max_files_read: 8
+  max_files_exposed: 30
+  max_content_characters: 80000
+  max_file_bytes: 100000
+  max_tree_entries: 500
+  max_search_matches: 100
+  max_search_result_characters: 20000
+  max_patch_bytes: 50000
+  max_patch_lines: 1000
+  max_changed_files: 5
+  wall_clock_seconds: 300.0
+max_repairs: 1
+verification_profile: deterministic-v1

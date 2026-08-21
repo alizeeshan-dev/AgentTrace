@@ -1,0 +1,10 @@
+diff --git a/cachekit/expiry.py b/cachekit/expiry.py
+index a611664..54bb798 100644
+--- a/cachekit/expiry.py
++++ b/cachekit/expiry.py
+@@ -6,4 +6,4 @@ def is_expired(*, stored_at: float, ttl_seconds: float, now: float) -> bool:
+ 
+     if ttl_seconds < 0:
+         raise ValueError("ttl_seconds cannot be negative")
+-    return now - stored_at > ttl_seconds
++    return now - stored_at >= ttl_seconds

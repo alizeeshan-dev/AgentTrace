@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: validation-capacity-equality
+repository: repositories/validation-capacity-equality.bundle
+base_commit: 24edbb9661357216878e98ee3784e5157bbc2353
+title: Allow reservations that exactly fill capacity
+description: >-
+  Accept a reservation whose requested amount exactly fills the remaining
+  capacity while continuing to reject reservations that exceed it.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - booking/capacity.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/validation-capacity-equality.patch
+timeout_seconds: 30
+tags:
+  - business-rule
+  - capacity
+known_faults:
+  - file: booking/capacity.py
+    line: 9
+    symbol: can_reserve
+metadata:
+  bug_class: inclusive-limit
+  mutation_targets:
+    - booking/capacity.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

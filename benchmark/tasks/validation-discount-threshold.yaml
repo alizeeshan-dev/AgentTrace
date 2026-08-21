@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: validation-discount-threshold
+repository: repositories/validation-discount-threshold.bundle
+base_commit: 9c03358b9c2da34b534e9c706d44ef75cac6ec09
+title: Apply a discount at the qualifying threshold
+description: >-
+  Apply the ten-percent discount when a subtotal is exactly one hundred as
+  well as when it is greater, while retaining existing validation behavior.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - pricing/rules.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: validation-discount-threshold
+known_correct_patch: patches/validation-discount-threshold.patch
+timeout_seconds: 30
+tags:
+  - business-rule
+  - threshold-boundary
+known_faults:
+  - file: pricing/rules.py
+    line: 14
+    symbol: discount_rate
+metadata:
+  bug_class: validation-boundary
+  mutation_targets:
+    - pricing/rules.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: api-json-content-type-parameters
+repository: repositories/api-json-content-type-parameters.bundle
+base_commit: d9c85a6cdb62fda5fb22eacd939d90c90e6dec5d
+title: Recognize parameterized JSON content types
+description: >-
+  Recognize JSON content types with optional parameters and mixed casing while
+  continuing to reject unrelated media types.
+task_category: bug_fix
+difficulty: medium
+allowed_paths:
+  - httpkit/headers.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/api-json-content-type-parameters.patch
+timeout_seconds: 30
+tags:
+  - api-logic
+  - http-header
+known_faults:
+  - file: httpkit/headers.py
+    line: 7
+    symbol: is_json_content_type
+metadata:
+  bug_class: parameterized-header
+  mutation_targets:
+    - httpkit/headers.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

@@ -1,0 +1,6 @@
+schema_version: 1
+profile_id: boundary-window-last
+test_file: property_tests/boundary-window-last/test_properties.py
+max_examples: 60
+deadline_ms: 1000
+timeout_seconds: 30

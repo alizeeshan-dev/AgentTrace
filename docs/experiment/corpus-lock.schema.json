@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:agenttrace:corpus-lock:v1",
+  "title": "AgentTrace corpus lock v1",
+  "description": "Frozen experiment-level bindings between benchmark tasks and their exact research artifacts and policies.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol_version",
+    "task_schema_id",
+    "frozen_at",
+    "randomization_seed",
+    "tasks"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": "1.0"
+    },
+    "task_schema_id": {
+      "const": "urn:agenttrace:benchmark-task:v1"
+    },
+    "frozen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "randomization_seed": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[^\\u0000\\r\\n]+$"
+    },
+    "tasks": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+        "minLength": 3,
+        "maxLength": 100
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/taskBinding"
+      }
+    }
+  },
+  "$defs": {
+    "taskBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_manifest_artifact",
+        "task_manifest_sha256",
+        "prepared_context_artifact",
+        "prepared_context_sha256",
+        "hidden_evaluator_artifact",
+        "hidden_evaluator_sha256",
+        "baseline_inventory_artifact",
+        "baseline_inventory_sha256",
+        "environment_artifact",
+        "environment_sha256",
+        "reference_outcome_sha256",
+        "tool_policy_id",
+        "tool_policy_sha256",
+        "verification_profile_id",
+        "verification_profile_sha256"
+      ],
+      "properties": {
+        "task_manifest_artifact": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "task_manifest_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "prepared_context_artifact": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "prepared_context_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "hidden_evaluator_artifact": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "hidden_evaluator_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "baseline_inventory_artifact": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "baseline_inventory_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "environment_artifact": {
+          "$ref": "#/$defs/artifactId"
+        },
+        "environment_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "reference_outcome_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "tool_policy_id": {
+          "$ref": "#/$defs/policyId"
+        },
+        "tool_policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "verification_profile_id": {
+          "$ref": "#/$defs/policyId"
+        },
+        "verification_profile_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "artifactId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!\\./)(?!\\.$)(?!.*//)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)(?!.*[:*?\\[\\]])[^\\u0000\\r\\n?#]+$",
+      "description": "Portable workspace-relative artifact identifier with no query, fragment, colon/ADS syntax, glob metacharacter, absolute path, or parent traversal."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "policyId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 100
+    }
+  }
+}

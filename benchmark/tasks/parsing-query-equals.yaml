@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: parsing-query-equals
+repository: repositories/parsing-query-equals.bundle
+base_commit: 1bf6e3432840bf249b088e471e8db158ab62edbe
+title: Preserve equals signs inside query values
+description: >-
+  Parse each query field at its first equals sign so values containing further
+  equals signs are preserved without changing simple field behavior.
+task_category: bug_fix
+difficulty: medium
+allowed_paths:
+  - querykit/parser.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/parsing-query-equals.patch
+timeout_seconds: 30
+tags:
+  - parsing
+  - query-string
+known_faults:
+  - file: querykit/parser.py
+    line: 11
+    symbol: parse_query
+metadata:
+  bug_class: delimiter-parsing
+  mutation_targets:
+    - querykit/parser.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

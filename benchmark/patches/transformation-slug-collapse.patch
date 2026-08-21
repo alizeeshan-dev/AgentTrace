@@ -1,0 +1,11 @@
+diff --git a/slugkit/normalize.py b/slugkit/normalize.py
+--- a/slugkit/normalize.py
++++ b/slugkit/normalize.py
+@@ -5,4 +5,6 @@
+     """Lowercase text and collapse every separator run to one hyphen."""
+ 
+     normalized = text.strip().lower().replace(" ", "-").replace("_", "-")
+-    return normalized.replace("--", "-")
++    while "--" in normalized:
++        normalized = normalized.replace("--", "-")
++    return normalized

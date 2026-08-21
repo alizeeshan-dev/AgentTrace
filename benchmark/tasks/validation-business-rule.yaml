@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: validation-business-rule
+repository: repositories/validation-business-rule.bundle
+base_commit: 555430b59785643ffc0e0314f7765c02a99cb08f
+title: Include the senior-rate boundary age
+description: >-
+  Active customers qualify for the senior rate beginning at age 65. Correct
+  the eligibility decision without changing inactive or invalid-age behavior.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - loyalty/rules.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/validation-business-rule.patch
+timeout_seconds: 30
+tags:
+  - business-rule
+  - boundary-condition
+known_faults:
+  - file: loyalty/rules.py
+    line: 9
+    symbol: qualifies_for_senior_rate
+metadata:
+  bug_class: incorrect-validation
+  mutation_targets:
+    - loyalty/rules.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

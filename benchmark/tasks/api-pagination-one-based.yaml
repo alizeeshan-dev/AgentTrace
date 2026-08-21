@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: api-pagination-one-based
+repository: repositories/api-pagination-one-based.bundle
+base_commit: 4248f506d6b867247a78f76fd355760b95f29f1a
+title: Use one-based page numbers for API pagination
+description: >-
+  Return the first items for page one and advance subsequent pages correctly
+  while preserving validation for invalid page arguments.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - pagekit/pagination.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/api-pagination-one-based.patch
+timeout_seconds: 30
+tags:
+  - api-logic
+  - pagination
+known_faults:
+  - file: pagekit/pagination.py
+    line: 13
+    symbol: paginate
+metadata:
+  bug_class: indexing-convention
+  mutation_targets:
+    - pagekit/pagination.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

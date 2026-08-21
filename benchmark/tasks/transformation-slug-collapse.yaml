@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: transformation-slug-collapse
+repository: repositories/transformation-slug-collapse.bundle
+base_commit: e9b022190ca5b0f6023ed748a534e705e127e8b2
+title: Collapse every separator run in generated slugs
+description: >-
+  Ensure that any run of spaces and underscores becomes exactly one hyphen in
+  the generated lowercase slug while preserving the existing simple cases.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - slugkit/normalize.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/transformation-slug-collapse.patch
+timeout_seconds: 30
+tags:
+  - transformation
+  - separator-normalization
+known_faults:
+  - file: slugkit/normalize.py
+    line: 8
+    symbol: to_slug
+metadata:
+  bug_class: small-algorithm
+  mutation_targets:
+    - slugkit/normalize.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

@@ -1,0 +1,15 @@
+diff --git a/csvkit/rows.py b/csvkit/rows.py
+index 33dadb2..96a434a 100644
+--- a/csvkit/rows.py
++++ b/csvkit/rows.py
+@@ -1,7 +1,9 @@
+ """Single-row CSV parsing."""
+ 
++import csv
++
+ 
+ def parse_row(line: str) -> list[str]:
+     """Parse one CSV row."""
+ 
+-    return [field.strip() for field in line.split(",")]
++    return next(csv.reader([line], skipinitialspace=True))

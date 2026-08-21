@@ -1,0 +1,11 @@
+diff --git a/windowkit/windows.py b/windowkit/windows.py
+index 3f84fcd..995b56e 100644
+--- a/windowkit/windows.py
++++ b/windowkit/windows.py
+@@ -6,4 +6,5 @@ def sliding_windows(values: list[int], size: int) -> list[list[int]]:
+ 
+     if size <= 0:
+         raise ValueError("size must be positive")
+-    return [values[index : index + size] for index in range(len(values) - size)]
++    final_start = len(values) - size
++    return [values[index : index + size] for index in range(max(final_start + 1, 0))]

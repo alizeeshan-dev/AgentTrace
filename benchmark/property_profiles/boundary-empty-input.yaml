@@ -1,0 +1,6 @@
+schema_version: 1
+profile_id: boundary-empty-input
+test_file: property_tests/boundary-empty-input/test_properties.py
+max_examples: 50
+deadline_ms: 1000
+timeout_seconds: 30

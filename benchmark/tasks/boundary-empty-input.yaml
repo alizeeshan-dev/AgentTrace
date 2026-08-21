@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: boundary-empty-input
+repository: repositories/boundary-empty-input.bundle
+base_commit: cfea943d022e85252df3b07c520c2cb895fa6e28
+title: Return no mean for an empty collection
+description: >-
+  Make mean return None when it receives an empty list while preserving its
+  arithmetic behavior for every non-empty list of numeric values.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - ministats/summary.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: boundary-empty-input
+symbolic_profile: null
+known_correct_patch: patches/boundary-empty-input.patch
+timeout_seconds: 30
+tags:
+  - boundary-condition
+  - empty-input
+known_faults:
+  - file: ministats/summary.py
+    line: 7
+    symbol: mean
+metadata:
+  bug_class: boundary-empty-input
+  mutation_targets:
+    - ministats/summary.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

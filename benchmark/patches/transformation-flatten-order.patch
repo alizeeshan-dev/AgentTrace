@@ -1,0 +1,11 @@
+diff --git a/listkit/flatten.py b/listkit/flatten.py
+index 4facc97..0d23a2c 100644
+--- a/listkit/flatten.py
++++ b/listkit/flatten.py
+@@ -6,5 +6,5 @@ def flatten_groups(groups: list[list[str]]) -> list[str]:
+ 
+     flattened: list[str] = []
+     for group in groups:
+-        flattened.extend(reversed(group))
++        flattened.extend(group)
+     return flattened

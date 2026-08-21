@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: transformation-deep-merge
+repository: repositories/transformation-deep-merge.bundle
+base_commit: caa1da86d84674dfe3d9ca7c63159bc84b022f12
+title: Recursively merge nested mappings
+description: >-
+  Merge nested mapping overrides without discarding sibling keys, returning a
+  new result and leaving both input mappings unchanged.
+task_category: bug_fix
+difficulty: hard
+allowed_paths:
+  - mapkit/merge.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/transformation-deep-merge.patch
+timeout_seconds: 30
+tags:
+  - transformation
+  - nested-mapping
+known_faults:
+  - file: mapkit/merge.py
+    line: 10
+    symbol: deep_merge
+metadata:
+  bug_class: shallow-merge
+  mutation_targets:
+    - mapkit/merge.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

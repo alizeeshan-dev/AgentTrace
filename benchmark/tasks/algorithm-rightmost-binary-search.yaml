@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: algorithm-rightmost-binary-search
+repository: repositories/algorithm-rightmost-binary-search.bundle
+base_commit: 726562e2c7076a1f3406030d89f25b3baf9c3f82
+title: Find the rightmost duplicate with binary search
+description: >-
+  Return the final index containing a target in sorted input even when the
+  target is duplicated, while retaining logarithmic search behavior.
+task_category: bug_fix
+difficulty: medium
+allowed_paths:
+  - searchkit/binary.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/algorithm-rightmost-binary-search.patch
+timeout_seconds: 30
+tags:
+  - algorithm
+  - binary-search
+known_faults:
+  - file: searchkit/binary.py
+    line: 12
+    symbol: rightmost_index
+metadata:
+  bug_class: duplicate-selection
+  mutation_targets:
+    - searchkit/binary.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: transformation-flatten-order
+repository: repositories/transformation-flatten-order.bundle
+base_commit: c3eba265cb3063d3866c00bf093c560647454842
+title: Preserve order while flattening groups
+description: >-
+  Flatten all groups in their existing order without reversing the items
+  inside a non-singleton group or changing empty-group behavior.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - listkit/flatten.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/transformation-flatten-order.patch
+timeout_seconds: 30
+tags:
+  - transformation
+  - order-preservation
+known_faults:
+  - file: listkit/flatten.py
+    line: 9
+    symbol: flatten_groups
+metadata:
+  bug_class: ordering
+  mutation_targets:
+    - listkit/flatten.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

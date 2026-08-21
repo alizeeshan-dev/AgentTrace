@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: algorithm-contained-interval-merge
+repository: repositories/algorithm-contained-interval-merge.bundle
+base_commit: aa645f3d719cd024183d17dac54cc6f0137fa869
+title: Preserve endpoints while merging contained intervals
+description: >-
+  Merge closed intervals without shrinking an accumulated endpoint when a
+  later interval is fully contained within the current merged interval.
+task_category: bug_fix
+difficulty: hard
+allowed_paths:
+  - intervalkit/merge.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: null
+symbolic_profile: null
+known_correct_patch: patches/algorithm-contained-interval-merge.patch
+timeout_seconds: 30
+tags:
+  - algorithm
+  - intervals
+known_faults:
+  - file: intervalkit/merge.py
+    line: 12
+    symbol: merge_intervals
+metadata:
+  bug_class: interval-containment
+  mutation_targets:
+    - intervalkit/merge.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

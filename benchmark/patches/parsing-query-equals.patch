@@ -1,0 +1,12 @@
+diff --git a/querykit/parser.py b/querykit/parser.py
+index 810c8d5..5e703cb 100644
+--- a/querykit/parser.py
++++ b/querykit/parser.py
+@@ -8,6 +8,6 @@ def parse_query(query: str) -> dict[str, str]:
+         return {}
+     result: dict[str, str] = {}
+     for field in query.split("&"):
+-        key, value = field.split("=")
++        key, value = field.split("=", 1)
+         result[key] = value
+     return result

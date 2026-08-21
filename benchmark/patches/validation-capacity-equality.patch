@@ -1,0 +1,10 @@
+diff --git a/booking/capacity.py b/booking/capacity.py
+index d6d2102..07b4559 100644
+--- a/booking/capacity.py
++++ b/booking/capacity.py
+@@ -6,4 +6,4 @@ def can_reserve(*, current: int, requested: int, capacity: int) -> bool:
+ 
+     if min(current, requested, capacity) < 0:
+         raise ValueError("capacity values cannot be negative")
+-    return current + requested < capacity
++    return current + requested <= capacity

@@ -1,0 +1,10 @@
+diff --git a/pricing/rules.py b/pricing/rules.py
+index d406bbd..9b8f24a 100644
+--- a/pricing/rules.py
++++ b/pricing/rules.py
+@@ -11,4 +11,4 @@ def discount_rate(subtotal: float) -> float:
+ 
+     if subtotal < 0:
+         raise ValueError("subtotal cannot be negative")
+-    return 0.1 if subtotal > 100.0 else 0.0
++    return 0.1 if subtotal >= 100.0 else 0.0

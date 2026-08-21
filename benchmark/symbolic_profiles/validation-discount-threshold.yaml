@@ -1,0 +1,9 @@
+schema_version: 1
+profile_id: validation-discount-threshold
+targets:
+  - pricing.rules:discount_rate
+contract_kind: PEP316
+per_condition_timeout_seconds: 5
+per_path_timeout_seconds: 2
+max_iterations: 1000
+timeout_seconds: 30

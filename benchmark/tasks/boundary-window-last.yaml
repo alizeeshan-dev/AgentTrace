@@ -1,0 +1,33 @@
+schema_version: 1
+task_id: boundary-window-last
+repository: repositories/boundary-window-last.bundle
+base_commit: c9d218b9a92b83d4030fe3b92911314c0337f5f3
+title: Include the final valid sliding window
+description: >-
+  Return every consecutive window, including the window beginning at the last
+  valid index and the single window equal in length to the input.
+task_category: bug_fix
+difficulty: easy
+allowed_paths:
+  - windowkit/windows.py
+forbidden_paths:
+  - tests/
+visible_test_command: python -m pytest -q tests
+hidden_test_command: python -m pytest -q {hidden_tests}
+property_profile: boundary-window-last
+symbolic_profile: null
+known_correct_patch: patches/boundary-window-last.patch
+timeout_seconds: 30
+tags:
+  - boundary-condition
+  - sequence-window
+known_faults:
+  - file: windowkit/windows.py
+    line: 9
+    symbol: sliding_windows
+metadata:
+  bug_class: boundary-off-by-one
+  mutation_targets:
+    - windowkit/windows.py
+  expected_baseline_visible_exit_code: 0
+  expected_baseline_hidden_exit_code: 1

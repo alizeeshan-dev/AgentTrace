@@ -1,0 +1,22 @@
+diff --git a/searchkit/binary.py b/searchkit/binary.py
+index 8463368..9333192 100644
+--- a/searchkit/binary.py
++++ b/searchkit/binary.py
+@@ -6,12 +6,14 @@ def rightmost_index(values: list[int], target: int) -> int:
+ 
+     low = 0
+     high = len(values) - 1
++    result = -1
+     while low <= high:
+         middle = (low + high) // 2
+         if values[middle] == target:
+-            return middle
+-        if values[middle] < target:
++            result = middle
++            low = middle + 1
++        elif values[middle] < target:
+             low = middle + 1
+         else:
+             high = middle - 1
+-    return -1
++    return result

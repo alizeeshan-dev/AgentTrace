@@ -1,0 +1,9 @@
+diff --git a/loyalty/rules.py b/loyalty/rules.py
+--- a/loyalty/rules.py
++++ b/loyalty/rules.py
+@@ -6,4 +6,4 @@
+ 
+     if age < 0:
+         raise ValueError("age cannot be negative")
+-    return account_active and age > 65
++    return account_active and age >= 65
