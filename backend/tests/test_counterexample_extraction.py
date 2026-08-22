@@ -62,7 +62,7 @@ def _verification(gate: NormalizedGate, *, resolved: bool | None = False) -> Ver
         attempt_number=1,
         resolved=resolved,
         regression=False,
-        image=None,
+        environment_kind=None,
         results=(gate,),
     )
 

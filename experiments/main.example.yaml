@@ -1,6 +1,6 @@
 # This is the complete 60-cell main-study matrix, but it remains an example
-# until the real provider/model and generated Windows environment fingerprint
-# are frozen. Never use the zero fingerprint for data collection.
+# until the selected Gemini model, pricing snapshot, and generated Windows
+# environment fingerprint are frozen. Never use the zero fingerprint for data collection.
 schema_version: 2
 experiment_id: main-study-v1
 benchmark_version: benchmark-v1.0.0
@@ -30,12 +30,15 @@ configurations:
   - condition: D
     feature_flags: {enable_sbfl: true, enable_hypothesis: true, enable_crosshair: true}
 model:
-  provider: replace-with-frozen-provider-id
-  model: replace-with-frozen-model-id
-  model_version: replace-with-frozen-model-version
+  provider: gemini
+  model: gemini-3.7-flash
+  model_version: null
+  api_key_env: GEMINI_API_KEY
+  request_timeout_seconds: 120.0
+  max_retries: 0
   temperature: 0.0
   parameters:
-    seed: 7
+    max_output_tokens: 12000
 budgets:
   max_model_turns: 8
   max_tool_calls: 6

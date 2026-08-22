@@ -171,6 +171,7 @@ class AgentRunService:
         context: PreparedRepositoryContext | None = None
         input_tokens = 0
         output_tokens = 0
+        estimated_cost: float | None = None
         events: list[dict[str, Any]] = []
         initial_messages: list[ModelMessage] = []
         messages: list[ModelMessage] = []
@@ -201,6 +202,7 @@ class AgentRunService:
                 )
                 input_tokens += response.usage.input_tokens
                 output_tokens += response.usage.output_tokens
+                estimated_cost = _add_cost(estimated_cost, response.usage.estimated_cost)
                 events.append(model_event(response))
                 tracker.check_wall_clock()
                 if isinstance(response.action, ToolCallAction):
@@ -227,6 +229,9 @@ class AgentRunService:
                     )
                     input_tokens += response.usage.input_tokens
                     output_tokens += response.usage.output_tokens
+                    estimated_cost = _add_cost(
+                        estimated_cost, response.usage.estimated_cost
+                    )
                     events.append(model_event(response))
                     tracker.check_wall_clock()
                     action = response.action
@@ -335,6 +340,7 @@ class AgentRunService:
             latency_ms=duration_ms,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            estimated_cost=estimated_cost,
             tool_calls=tracker.tool_calls,
             model_turns=tracker.model_turns,
             files_read=context.files_read if context is not None else tracker.files_read,
@@ -474,6 +480,7 @@ class AgentRunService:
         latency_ms: int,
         input_tokens: int,
         output_tokens: int,
+        estimated_cost: float | None,
         tool_calls: int,
         model_turns: int,
         files_read: int,
@@ -491,6 +498,7 @@ class AgentRunService:
                 "content_characters": content_characters,
                 "files_exposed": files_exposed,
                 "model_turns": model_turns,
+                "total_tokens": input_tokens + output_tokens,
             },
             "artifact_references": {
                 "model": model_artifact,
@@ -514,7 +522,7 @@ class AgentRunService:
                 latency_ms=latency_ms,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
-                estimated_cost=None,
+                estimated_cost=estimated_cost,
                 tool_calls=tool_calls,
                 files_read=files_read,
                 lines_exposed=lines_exposed,
@@ -529,3 +537,9 @@ class AgentRunService:
         if patch is not None:
             self.session.add(PatchArtifactRecord(**patch.model_dump()))
         self.session.flush()
+
+
+def _add_cost(current: float | None, additional: float | None) -> float | None:
+    if additional is None:
+        return current
+    return (current or 0.0) + additional

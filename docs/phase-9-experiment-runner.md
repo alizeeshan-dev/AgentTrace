@@ -39,15 +39,15 @@ python -m app.experiments.cli --config experiments/pilot.yaml --benchmark-root b
 
 ## Real-provider pilot
 
-Keep provider credentials in the process environment, outside the YAML and artifacts. Implement a
-provider-neutral factory `create_provider(slot: ExperimentSlot) -> ModelProvider`, then use:
+The built-in provider is selected with `model.provider: gemini` and reads
+`GEMINI_API_KEY` from the ignored local `.env` file. Run a configured real
+matrix without a provider-factory argument:
 
 ```powershell
 $env:PYTHONPATH = "backend"
-python -m app.experiments.cli --config experiments/pilot-real.example.yaml --benchmark-root benchmark --state-dir .agenttrace-real --provider-factory your_adapter:create_provider
+python -m app.experiments.cli --config experiments/pilot-real.example.yaml --benchmark-root benchmark --state-dir .agenttrace-real
 ```
 
-First copy the example to a deliberately frozen file and replace its model placeholders. Use a
-separate experiment ID and state directory for real results. The provider adapter is responsible
-for controlled credentials and cost limits; AgentTrace does not hard-code a provider SDK or secret
-names.
+Use a separate experiment ID and state directory for real results. A custom
+provider can still be supplied through `--provider-factory MODULE:FUNCTION`,
+but Configurations A--D remain coupled only to the provider-neutral interface.

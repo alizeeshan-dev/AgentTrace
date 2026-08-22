@@ -31,6 +31,7 @@ tasks and adds the integration, reproducibility, and security checks summarized 
 - per-test Coverage.py contexts, test-by-line spectra, and auditable Ochiai
   rankings persisted through `FaultLocalizationResult`;
 - provider-neutral structured model actions with an offline fake provider;
+- a built-in Gemini Developer API adapter using required structured function calls;
 - deterministic direct-patch context and a bounded, shell-free tool agent;
 - unified-diff policy validation and orchestrator-only disposable application.
 - baseline-aware, fail-fast verification for trusted, pre-qualified benchmark
@@ -127,5 +128,29 @@ Experiment YAML records `model.provider` as a frozen input. The configured
 identifier must equal the active adapter's `provider_name`; changing providers
 therefore changes stable run IDs and cannot silently reuse earlier results.
 The proposed 60-cell main matrix is `experiments/main.example.yaml`, but it is
-not a final configuration until its explicit provider/model placeholders and
-the Phase 10 blockers are resolved.
+not a final configuration until the selected model, pricing snapshot, Windows
+environment fingerprint, and remaining Phase 10 inputs are frozen.
+
+## Real Gemini provider
+
+Create the ignored local credential file and replace its placeholder without
+quotes:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+```dotenv
+GEMINI_API_KEY=replace_with_your_real_key
+```
+
+The model is selected under `model.model` in `experiments/gemini-smoke.yaml`.
+After the task is qualified in `.agenttrace`, run one Configuration A task with:
+
+```powershell
+$env:PYTHONPATH = "backend"
+.\.venv\Scripts\python.exe -m app.experiments.cli --config experiments/gemini-smoke.yaml --benchmark-root benchmark --state-dir .agenttrace
+```
+
+See `docs/gemini-provider.md` for structured-action behavior, supported request
+parameters, controlled errors, and the separate pricing configuration.

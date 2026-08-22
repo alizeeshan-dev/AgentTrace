@@ -232,6 +232,7 @@ class ConfigurationCService:
         self._event(run_id, "repair_start", "started", input={"source": counterexample.source})
         initial_input_tokens = run.input_tokens
         initial_output_tokens = run.output_tokens
+        initial_estimated_cost = run.estimated_cost
         repair_started = monotonic()
         repair_model_latency_ms = 0
         repair_patch_reference: ArtifactReference | None = None
@@ -265,6 +266,9 @@ class ConfigurationCService:
                 )
                 run.input_tokens += response.usage.input_tokens
                 run.output_tokens += response.usage.output_tokens
+                run.estimated_cost = _add_cost(
+                    run.estimated_cost, response.usage.estimated_cost
+                )
                 repair_model_latency_ms += response.latency_ms
                 repair_events.append(model_event(response))
                 if isinstance(response.action, SubmitPatchAction):
@@ -360,6 +364,7 @@ class ConfigurationCService:
             "content_characters": tracker.content_characters,
             "files_exposed": tracker.files_exposed,
             "model_turns": tracker.model_turns,
+            "total_tokens": run.input_tokens + run.output_tokens,
         }
         run.model_parameters = usage_parameters
         run.finished_at = datetime.now(UTC)
@@ -377,7 +382,11 @@ class ConfigurationCService:
             added_output_tokens=run.output_tokens - initial_output_tokens,
             added_model_latency_ms=repair_model_latency_ms,
             added_latency_ms=int((monotonic() - repair_started) * 1_000),
-            added_cost=None,
+            added_cost=(
+                run.estimated_cost - (initial_estimated_cost or 0.0)
+                if run.estimated_cost is not None
+                else None
+            ),
             repair_success=repair_success,
             repair_induced_regression=repair_regression,
             initial_verification_duration_ms=_verification_duration(initial_verification),
@@ -656,3 +665,9 @@ def _summary(value: dict[str, Any] | None) -> str | None:
         return None
     rendered = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
     return rendered if len(rendered) <= 2_000 else f"{rendered[:1997]}..."
+
+
+def _add_cost(current: float | None, additional: float | None) -> float | None:
+    if additional is None:
+        return current
+    return (current or 0.0) + additional

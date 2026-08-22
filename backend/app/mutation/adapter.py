@@ -127,7 +127,6 @@ def build_pytest_gremlins_commands(
     targets = ",".join(config.source_paths)
     command = [
         python_executable,
-        "-I",
         "-m",
         "pytest",
         "--gremlins",

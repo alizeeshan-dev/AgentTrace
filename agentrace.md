@@ -321,6 +321,7 @@ Not every technology has equal importance. The following distinction prevents th
 | **ripgrep** | Fast bounded source search where available |
 | **pandas** | Experiment result preparation |
 | **matplotlib** | Reproducible research figures |
+| **Gemini Developer API / Google Gen AI Python SDK** | Built-in real model adapter behind the provider-independent structured-action interface |
 
 ### 6.4 Trace standardization
 

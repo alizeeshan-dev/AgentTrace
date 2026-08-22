@@ -22,6 +22,15 @@ VerificationProfile = Annotated[
         pattern=r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$",
     ),
 ]
+ApiKeyEnvironmentVariable = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=2,
+        max_length=64,
+        pattern=r"^[A-Z][A-Z0-9_]+$",
+    ),
+]
 
 
 class ExperimentCondition(StrEnum):
@@ -134,14 +143,24 @@ class ModelConfiguration(ResearchSchema):
     model: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
     model_version: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
-    ]
+    ] | None = None
+    api_key_env: ApiKeyEnvironmentVariable | None = None
+    request_timeout_seconds: Annotated[float, Field(gt=0, le=3_600)] = 120.0
+    max_retries: Annotated[int, Field(ge=0, le=10)] = 0
     temperature: Annotated[float, Field(ge=0, le=2)]
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
 
     @field_validator("parameters")
     @classmethod
     def reserved_parameters_are_explicit(cls, values: dict[str, JsonValue]) -> dict[str, JsonValue]:
-        reserved = {"temperature", "model_version", "experiment_contract"}
+        reserved = {
+            "api_key_env",
+            "experiment_contract",
+            "max_retries",
+            "model_version",
+            "request_timeout_seconds",
+            "temperature",
+        }
         overlap = reserved.intersection(values)
         if overlap:
             names = ", ".join(sorted(overlap))
@@ -197,7 +216,10 @@ class ExperimentContract(ResearchSchema):
     configuration_id: ConfigurationId
     provider: str
     model: str
-    model_version: str
+    model_version: str | None
+    api_key_env: ApiKeyEnvironmentVariable | None
+    request_timeout_seconds: float
+    max_retries: int
     temperature: float
     task_id: str
     task_description: str

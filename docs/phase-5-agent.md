@@ -14,6 +14,13 @@ the boundary only as a controlled `ModelProviderError`. The scripted
 `FakeModelProvider` supports deterministic local tests without an SDK, network
 access, or credentials.
 
+The built-in real adapter is `GeminiModelProvider`, implemented against the
+Gemini Developer API through Google's Gen AI Python SDK. It represents every
+repository action and patch submission as a required provider function call, validates its arguments with
+the existing Pydantic schemas, and returns the same provider-neutral
+`ModelResponse`. See `docs/gemini-provider.md` for local credential and model
+configuration.
+
 Actions are either a single approved repository tool call or a terminal
 `submit_patch`. Concise observable explanation fields are permitted. Arbitrary
 extra fields, including purported hidden chain-of-thought, are rejected.

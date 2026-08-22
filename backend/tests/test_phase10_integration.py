@@ -400,7 +400,12 @@ def test_all_conditions_share_export_contract_and_preserve_cegis_invariants(
         )
         inference_output = json.loads(cast(str, inference["output_summary"]))
         assert inference_output["provider_request_id"] == "fake-request-0001"
-        assert inference_output["usage"] == {"input_tokens": 5, "output_tokens": 3}
+        assert inference_output["usage"] == {
+            "input_tokens": 5,
+            "output_tokens": 3,
+            "total_tokens": None,
+            "estimated_cost": None,
+        }
 
     assert all(keys == run_key_sets[0] for keys in run_key_sets)
 

@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, computed_field, model_validator
+from pydantic import AliasChoices, Field, SecretStr, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.filesystem import paths_overlap, validate_runtime_root
@@ -20,6 +20,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     app_name: str = "AgentTrace"
@@ -32,6 +33,11 @@ class Settings(BaseSettings):
     verification_root: Path | None = None
     max_file_size_bytes: int = Field(default=1_048_576, ge=1, le=16_777_216)
     max_artifact_size_bytes: int = Field(default=16_777_216, ge=1, le=268_435_456)
+    gemini_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GEMINI_API_KEY", "AGENTTRACE_GEMINI_API_KEY"),
+        repr=False,
+    )
 
     @model_validator(mode="after")
     def runtime_roots_do_not_overlap(self) -> Settings:

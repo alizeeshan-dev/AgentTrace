@@ -89,6 +89,16 @@ class ExperimentCostConfiguration(ResearchSchema):
         StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
     ]
 
+    @model_validator(mode="after")
+    def pricing_rates_are_both_configured_or_both_absent(
+        self,
+    ) -> ExperimentCostConfiguration:
+        if (self.input_per_million_tokens is None) != (
+            self.output_per_million_tokens is None
+        ):
+            raise ValueError("input and output pricing must be configured together")
+        return self
+
 
 class ExperimentConfigurationSpec(ResearchSchema):
     """One named condition with its research switches made explicit."""

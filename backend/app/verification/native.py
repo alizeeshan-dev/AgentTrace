@@ -148,9 +148,10 @@ class WindowsVerificationRunner:
             and self.verification_root not in resolved_parent.parents
         ):
             raise ValueError("verification environment must be below verification_root")
-        if destination.exists():
-            if _is_link_like(destination) or any(destination.iterdir()):
-                raise ValueError("verification environment root must be absent or empty")
+        if destination.exists() and (
+            _is_link_like(destination) or any(destination.iterdir())
+        ):
+            raise ValueError("verification environment root must be absent or empty")
         try:
             venv.EnvBuilder(
                 system_site_packages=False,
@@ -446,11 +447,16 @@ def _translate_environment_value(key: str, value: str, roots: Mapping[str, Path]
 
 
 def _translate_virtual_roots(value: str, roots: Mapping[str, Path]) -> str:
+    unavailable = {
+        virtual
+        for virtual in ("/workspace", "/output", "/evaluator")
+        if virtual not in roots and virtual in value
+    }
+    if unavailable:
+        raise ValueError("verification command references an unavailable virtual root")
     translated = value
     for virtual, physical in sorted(roots.items(), key=lambda item: len(item[0]), reverse=True):
         translated = translated.replace(virtual, physical.as_posix())
-    if "/workspace" in translated or "/output" in translated or "/evaluator" in translated:
-        raise ValueError("verification command references an unavailable virtual root")
     return translated
 
 

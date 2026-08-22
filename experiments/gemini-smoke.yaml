@@ -1,19 +1,11 @@
 schema_version: 1
-experiment_id: phase9-real-pilot-v1
-benchmark_version: pilot-v1
+experiment_id: gemini-one-task-smoke-v1
+benchmark_version: benchmark-v1.0.0
 tasks:
   - tasks/boundary-empty-input.yaml
-  - tasks/validation-business-rule.yaml
-  - tasks/transformation-slug-collapse.yaml
 configurations:
   - condition: A
     feature_flags: {enable_sbfl: false, enable_hypothesis: false, enable_crosshair: false}
-  - condition: B
-    feature_flags: {enable_sbfl: false, enable_hypothesis: false, enable_crosshair: false}
-  - condition: C
-    feature_flags: {enable_sbfl: false, enable_hypothesis: false, enable_crosshair: false}
-  - condition: D
-    feature_flags: {enable_sbfl: true, enable_hypothesis: true, enable_crosshair: true}
 model:
   provider: gemini
   model: gemini-3.7-flash
@@ -25,8 +17,8 @@ model:
   parameters:
     max_output_tokens: 12000
 budgets:
-  max_model_turns: 8
-  max_tool_calls: 6
+  max_model_turns: 1
+  max_tool_calls: 0
   max_files_read: 8
   max_files_exposed: 30
   max_content_characters: 80000
@@ -38,5 +30,10 @@ budgets:
   max_patch_lines: 1000
   max_changed_files: 5
   wall_clock_seconds: 300.0
-max_repairs: 1
+max_repairs: 0
 verification_profile: deterministic-v1
+cost:
+  currency: USD
+  input_per_million_tokens: 0.0
+  output_per_million_tokens: 0.0
+  source: Gemini Developer API free tier snapshot; confirm before research data collection

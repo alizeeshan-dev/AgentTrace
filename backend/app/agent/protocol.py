@@ -91,6 +91,7 @@ def model_event(response: ModelResponse) -> dict[str, Any]:
         "latency_ms": response.latency_ms,
         "model_identifier": response.model_identifier,
         "model_parameters": response.model_parameters,
+        "provider_status": response.provider_status,
         "provider_request_id": response.provider_request_id,
         "usage": response.usage.model_dump(mode="json"),
     }

@@ -229,7 +229,6 @@ def _pytest_command(command: str, *, output_name: str, hidden: bool) -> tuple[st
     ]
     return (
         "python",
-        "-I",
         "-m",
         "pytest",
         *resolved,

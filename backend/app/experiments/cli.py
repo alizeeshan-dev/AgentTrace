@@ -13,8 +13,10 @@ from sqlalchemy.orm import Session
 
 from app.agent import (
     FakeModelProvider,
+    GeminiModelProvider,
     ReadFileArguments,
     SubmitPatchAction,
+    TokenPricing,
     ToolCallAction,
 )
 from app.agent.provider import ModelProvider
@@ -39,7 +41,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--benchmark-root", type=Path, default=Path("benchmark"))
     parser.add_argument("--state-dir", type=Path, default=Path(".agenttrace"))
-    provider = parser.add_mutually_exclusive_group(required=True)
+    provider = parser.add_mutually_exclusive_group()
     provider.add_argument(
         "--fake-known-correct",
         action="store_true",
@@ -48,7 +50,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     provider.add_argument(
         "--provider-factory",
         metavar="MODULE:FUNCTION",
-        help="provider-neutral factory accepting one ExperimentSlot",
+        help="optional provider-neutral factory accepting one ExperimentSlot",
     )
     parser.add_argument("--dry-run", action="store_true")
     arguments = parser.parse_args(argv)
@@ -62,11 +64,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     init_database(engine)
     sessions = make_session_factory(engine)
     try:
-        provider_factory = (
-            _known_correct_provider_factory(config.tasks, root)
-            if arguments.fake_known_correct
-            else _load_provider_factory(arguments.provider_factory)
-        )
+        if arguments.fake_known_correct:
+            provider_factory = _known_correct_provider_factory(config.tasks, root)
+        elif arguments.provider_factory is not None:
+            provider_factory = _load_provider_factory(arguments.provider_factory)
+        else:
+            provider_factory = _built_in_provider_factory(config, settings)
 
         def configuration_factory(
             session: Session,
@@ -166,6 +169,40 @@ def _load_provider_factory(reference: str | None) -> ProviderFactory:
     if not callable(factory):
         raise ValueError("provider factory reference is not callable")
     return cast(ProviderFactory, factory)
+
+
+def _built_in_provider_factory(
+    config: ExperimentConfig,
+    settings: Settings,
+) -> ProviderFactory:
+    if config.model.provider != "gemini":
+        raise ValueError(
+            "no built-in adapter exists for the configured provider; "
+            "use provider 'gemini' or --provider-factory"
+        )
+    if config.model.api_key_env != "GEMINI_API_KEY":
+        raise ValueError("the built-in Gemini adapter requires api_key_env: GEMINI_API_KEY")
+    pricing = TokenPricing(
+        input_per_million_tokens=(
+            config.cost.input_per_million_tokens if config.cost is not None else None
+        ),
+        output_per_million_tokens=(
+            config.cost.output_per_million_tokens if config.cost is not None else None
+        ),
+        source=config.cost.source if config.cost is not None else None,
+    )
+
+    def build(slot: ExperimentSlot) -> ModelProvider:
+        del slot
+        secret = settings.gemini_api_key
+        return GeminiModelProvider(
+            api_key=secret.get_secret_value() if secret is not None else None,
+            request_timeout_seconds=config.model.request_timeout_seconds,
+            max_retries=config.model.max_retries,
+            pricing=pricing,
+        )
+
+    return build
 
 
 def _require_frozen_environment(

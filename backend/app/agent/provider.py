@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from enum import StrEnum
 from typing import Annotated, Literal, Protocol, runtime_checkable
 
-from pydantic import Field, JsonValue, StringConstraints, field_validator
+from pydantic import Field, JsonValue, StringConstraints, field_validator, model_validator
 
 from app.agent.actions import AgentAction, SubmitPatchAction, ToolCallAction
 from app.schemas.common import Identifier, ResearchSchema
@@ -65,6 +65,17 @@ class ModelRequest(ResearchSchema):
 class ModelUsage(ResearchSchema):
     input_tokens: Annotated[int, Field(ge=0)] = 0
     output_tokens: Annotated[int, Field(ge=0)] = 0
+    total_tokens: Annotated[int, Field(ge=0)] | None = None
+    estimated_cost: Annotated[float, Field(ge=0)] | None = None
+
+    @model_validator(mode="after")
+    def total_covers_reported_components(self) -> ModelUsage:
+        if (
+            self.total_tokens is not None
+            and self.total_tokens < self.input_tokens + self.output_tokens
+        ):
+            raise ValueError("total_tokens cannot be smaller than input_tokens + output_tokens")
+        return self
 
 
 class ModelResponse(ResearchSchema):
@@ -79,6 +90,7 @@ class ModelResponse(ResearchSchema):
         None
     )
     finish_reason: Annotated[str, StringConstraints(min_length=1, max_length=100)] | None = None
+    provider_status: Annotated[str, StringConstraints(min_length=1, max_length=100)] | None = None
 
     @field_validator("model_parameters")
     @classmethod
