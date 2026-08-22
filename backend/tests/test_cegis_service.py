@@ -42,7 +42,12 @@ class ScriptedVerifier:
         resolution = self.resolutions.pop(0)
         if resolution is None:
             gate = NormalizedGate(
-                "verification_environment", True, "error", None, 1, "Docker unavailable"
+                "verification_environment",
+                True,
+                "error",
+                None,
+                1,
+                "Native verification environment unavailable",
             )
         elif resolution:
             gate = NormalizedGate("hidden_tests", True, "passed", 0, 2, "passed")

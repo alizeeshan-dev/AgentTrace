@@ -26,7 +26,9 @@ from app.db import create_database_engine, init_database, make_session_factory
 from app.db.models import Run
 from app.traces import RunTraceExporter
 
+from .environment import EnvironmentManifestError, load_windows_environment_manifest
 from .loader import load_experiment_config
+from .models import ExperimentConfig
 from .runner import ExperimentRunner, ExperimentSlot
 
 type ProviderFactory = Callable[[ExperimentSlot], ModelProvider]
@@ -52,6 +54,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     config = load_experiment_config(arguments.config)
+    _require_frozen_environment(config, Path.cwd())
     root = arguments.benchmark_root.resolve(strict=True)
     settings = Settings(state_dir=arguments.state_dir.resolve())
     settings.state_dir.mkdir(parents=True, exist_ok=True)
@@ -163,6 +166,30 @@ def _load_provider_factory(reference: str | None) -> ProviderFactory:
     if not callable(factory):
         raise ValueError("provider factory reference is not callable")
     return cast(ProviderFactory, factory)
+
+
+def _require_frozen_environment(
+    config: ExperimentConfig,
+    repository_root: Path,
+) -> None:
+    """Bind schema-v2 execution to its immutable native Windows manifest."""
+
+    if config.environment is None:
+        return
+    relative = Path(*config.environment.manifest_path.split("/"))
+    root = repository_root.resolve(strict=True)
+    manifest_path = (root / relative).resolve(strict=True)
+    if not manifest_path.is_relative_to(root):
+        raise EnvironmentManifestError("environment manifest escapes repository root")
+    manifest = load_windows_environment_manifest(manifest_path)
+    if (
+        manifest.environment_id != config.environment.environment_id
+        or manifest.environment_fingerprint_sha256
+        != config.environment.fingerprint_sha256
+    ):
+        raise EnvironmentManifestError(
+            "experiment configuration and environment manifest do not match"
+        )
 
 
 if __name__ == "__main__":

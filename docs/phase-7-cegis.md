@@ -28,8 +28,9 @@ Only genuine candidate failures produce a `Counterexample`. Hidden failures
 contain counts and generic behavioral symptoms, never hidden identifiers,
 paths, assertions, logs, or source. Hypothesis evidence retains its final
 shrunk input. Counterexample feedback is bounded, valid JSON and explicitly
-requests a clean-base replacement patch. Docker, provider, checkout, and
-internal infrastructure failures are not software counterexamples.
+requests a clean-base replacement patch. Native verifier infrastructure,
+provider, checkout, and internal AgentTrace failures are not software
+counterexamples.
 
 Repair token, latency, patch-size, outcome, counterexample-source, success, and
 regression metrics are stored under `Run.model_parameters.repair_metrics`.

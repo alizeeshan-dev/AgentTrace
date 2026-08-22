@@ -1,8 +1,10 @@
-"""Phase 6 deterministic verification orchestration.
+"""Deterministic verification orchestration for trusted benchmark repositories.
 
-Repository Python is executed only through :class:`DockerRunner`.  Host-side
-operations are limited to trusted manifest handling, Git checkout/patch
-application, sidecar parsing, artifact persistence, and database writes.
+Repository Python runs in managed disposable Git workspaces through the native
+Windows verification boundary.  Each attempt receives a temporary Python
+environment, fixed working directories, sanitized process variables, bounded
+output, and hard timeouts.  This is intentionally weaker than VM/container
+isolation and is not intended for arbitrary untrusted repositories.
 """
 
 from __future__ import annotations
@@ -27,9 +29,13 @@ from app.db.models import PatchArtifact, Repository, Run, Task, VerificationResu
 from app.repositories.workspace import DisposableWorkspace, WorkspaceManager
 from app.services.workspaces import LoadedTaskWorkspace, TaskWorkspaceLoader
 
-from .docker import DockerEnvironmentError, DockerImageIdentity, DockerLimits, DockerRunner
 from .gates import GateOutcome, GateSpec, StandardGateFactory, StandardGateRunner
 from .junit import TestInventory, compare_inventories, read_junit
+from .native import (
+    NativeEnvironmentError,
+    WindowsExecutionEnvironment,
+    WindowsVerificationRunner,
+)
 from .properties import (
     PropertyEvaluation,
     build_property_execution_plan,
@@ -71,7 +77,7 @@ class VerificationRun:
     attempt_number: int
     resolved: bool | None
     regression: bool
-    image: DockerImageIdentity | None
+    environment_kind: str | None
     results: tuple[NormalizedGate, ...]
 
 
@@ -92,7 +98,7 @@ class VerificationService:
         session: Session,
         *,
         settings: Settings,
-        docker: DockerRunner | None = None,
+        runner: WindowsVerificationRunner | None = None,
         features: VerificationFeatures | None = None,
     ) -> None:
         self.session = session
@@ -107,15 +113,9 @@ class VerificationService:
             settings.effective_artifact_root,
             max_artifact_bytes=settings.max_artifact_size_bytes,
         )
-        self.docker = docker or DockerRunner(
+        self.runner = runner or WindowsVerificationRunner(
             settings.effective_workspace_root,
-            docker_executable=settings.docker_executable,
-            limits=DockerLimits(
-                cpus=settings.verification_cpus,
-                memory_mb=settings.verification_memory_mb,
-                pids=settings.verification_pids,
-                tmpfs_mb=settings.verification_tmpfs_mb,
-            ),
+            settings.effective_verification_root,
         )
 
     def verify(
@@ -151,35 +151,12 @@ class VerificationService:
         baseline = self._load_workspace(task.task_id, f"{run_id}-vbase")
         candidate = self._load_workspace(task.task_id, f"{run_id}-vcand")
         results: list[NormalizedGate] = []
-        image: DockerImageIdentity | None = None
+        environment_kind: str | None = None
         regression = False
         try:
-            try:
-                image = self.docker.inspect_image(self.settings.verification_image)
-            except DockerEnvironmentError as error:
-                gate = self._store_gate(
-                    run_id,
-                    attempt_number,
-                    NormalizedGate(
-                        "verification_environment",
-                        True,
-                        "error",
-                        None,
-                        0,
-                        f"Docker verification environment unavailable: {error}",
-                    ),
-                )
-                results.append(gate)
-                run.status = "verification_infrastructure_failure"
-                run.final_resolution = None
-                run.failure_category = "INFRASTRUCTURE_FAILURE"
-                self.session.flush()
-                return VerificationRun(run_id, attempt_number, None, False, None, tuple(results))
-
             parameters = dict(run.model_parameters)
             parameters["verification"] = {
-                "docker_image_id": image.image_id,
-                "docker_image_reference": image.reference,
+                "runner": "native_windows",
                 "gate_order": [
                     "patch_applied",
                     "python_compile",
@@ -188,15 +165,16 @@ class VerificationService:
                     "hidden_tests",
                     "hypothesis_properties",
                 ],
-                "limits": {
-                    "cpus": self.settings.verification_cpus,
-                    "memory_mb": self.settings.verification_memory_mb,
-                    "pids": self.settings.verification_pids,
-                    "tmpfs_mb": self.settings.verification_tmpfs_mb,
+                "process_controls": {
+                    "dedicated_virtual_environment": True,
+                    "sanitized_environment": True,
+                    "shell": False,
+                    "hard_timeouts": True,
+                    "trusted_benchmarks_only": True,
                 },
                 "property_profile": loaded.task.property_profile,
                 "hypothesis_enabled": self.features.enable_hypothesis,
-                "protocol_version": "phase6-v1",
+                "protocol_version": "native-windows-v1",
                 "symbolic_profile": loaded.task.symbolic_profile,
                 "symbolic_enabled": self.features.enable_symbolic,
                 "symbolic_counterexamples_actionable": (
@@ -207,9 +185,44 @@ class VerificationService:
 
             with tempfile.TemporaryDirectory(dir=self.verification_root) as temporary:
                 stage = Path(temporary)
+                try:
+                    baseline_environment = self.runner.prepare_environment(
+                        stage / "baseline-venv"
+                    )
+                    candidate_environment = self.runner.prepare_environment(
+                        stage / "candidate-venv"
+                    )
+                except NativeEnvironmentError as error:
+                    gate = self._store_gate(
+                        run_id,
+                        attempt_number,
+                        NormalizedGate(
+                            "verification_environment",
+                            True,
+                            "error",
+                            None,
+                            0,
+                            f"Native verification environment unavailable: {error}",
+                        ),
+                    )
+                    results.append(gate)
+                    run.status = "verification_infrastructure_failure"
+                    run.final_resolution = None
+                    run.failure_category = "INFRASTRUCTURE_FAILURE"
+                    self.session.flush()
+                    return VerificationRun(
+                        run_id, attempt_number, None, False, None, tuple(results)
+                    )
+                environment_kind = "native_windows_venv"
                 evaluator = self._stage_evaluator(loaded, stage)
                 baseline_results, baseline_inventory, baseline_status = self._run_baseline(
-                    baseline.workspace, loaded, image, evaluator, stage, run_id, attempt_number
+                    baseline.workspace,
+                    loaded,
+                    baseline_environment,
+                    evaluator,
+                    stage,
+                    run_id,
+                    attempt_number,
                 )
                 results.extend(baseline_results)
                 if any(item.required and item.status == "error" for item in baseline_results):
@@ -218,7 +231,7 @@ class VerificationService:
                     run.failure_category = "INFRASTRUCTURE_FAILURE"
                     self.session.flush()
                     return VerificationRun(
-                        run_id, attempt_number, None, False, image, tuple(results)
+                        run_id, attempt_number, None, False, environment_kind, tuple(results)
                     )
 
                 patch_gate = self._apply_patch(candidate, patch)
@@ -228,7 +241,7 @@ class VerificationService:
                     candidate_results, regression = self._run_candidate(
                         candidate.workspace,
                         loaded,
-                        image,
+                        candidate_environment,
                         evaluator,
                         stage,
                         baseline_inventory,
@@ -251,7 +264,7 @@ class VerificationService:
                 run.failure_category = "INFRASTRUCTURE_FAILURE"
                 self.session.flush()
                 return VerificationRun(
-                    run_id, attempt_number, None, regression, image, tuple(results)
+                    run_id, attempt_number, None, regression, environment_kind, tuple(results)
                 )
             resolved = bool(required) and all(item.passed for item in required)
             run.final_resolution = resolved
@@ -259,7 +272,7 @@ class VerificationService:
             run.failure_category = None if resolved else self._failure_category(results, regression)
             self.session.flush()
             return VerificationRun(
-                run_id, attempt_number, resolved, regression, image, tuple(results)
+                run_id, attempt_number, resolved, regression, environment_kind, tuple(results)
             )
         finally:
             self.workspaces.remove(baseline.workspace)
@@ -304,12 +317,12 @@ class VerificationService:
             )
             plan = build_property_execution_plan(profile)
             for mount in plan.evaluator_mounts:
-                relative = mount.container_path.relative_to(PurePosixPath("/evaluator"))
+                relative = mount.virtual_path.relative_to(PurePosixPath("/evaluator"))
                 destination = evaluator.joinpath(*relative.parts)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(mount.source_path, destination)
             for generated in plan.generated_files:
-                relative = generated.container_path.relative_to(PurePosixPath("/evaluator"))
+                relative = generated.virtual_path.relative_to(PurePosixPath("/evaluator"))
                 destination = evaluator.joinpath(*relative.parts)
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 destination.write_bytes(generated.content)
@@ -365,7 +378,7 @@ class VerificationService:
         self,
         workspace: DisposableWorkspace,
         loaded: LoadedBenchmarkTask,
-        image: DockerImageIdentity,
+        execution_environment: WindowsExecutionEnvironment,
         evaluator: Path,
         stage: Path,
         run_id: str,
@@ -374,7 +387,7 @@ class VerificationService:
         results: list[NormalizedGate] = []
         inventories: dict[str, TestInventory] = {}
         statuses: dict[str, str] = {}
-        runner = StandardGateRunner(self.docker, image)
+        runner = StandardGateRunner(self.runner, execution_environment)
         for spec in self._standard_specs(loaded):
             output = self._output_dir(stage, f"baseline-{spec.gate}")
             outcome = runner.run(
@@ -403,7 +416,14 @@ class VerificationService:
             statuses[spec.gate] = gate.status
             results.append(self._store_gate(run_id, attempt, gate))
         if self.features.enable_hypothesis and loaded.task.property_profile is not None:
-            gate = self._run_property(workspace, loaded, image, evaluator, stage, baseline=True)
+            gate = self._run_property(
+                workspace,
+                loaded,
+                execution_environment,
+                evaluator,
+                stage,
+                baseline=True,
+            )
             statuses["hypothesis_properties"] = gate.status
             results.append(self._store_gate(run_id, attempt, gate))
         return results, inventories, statuses
@@ -412,7 +432,7 @@ class VerificationService:
         self,
         workspace: DisposableWorkspace,
         loaded: LoadedBenchmarkTask,
-        image: DockerImageIdentity,
+        execution_environment: WindowsExecutionEnvironment,
         evaluator: Path,
         stage: Path,
         baseline: dict[str, TestInventory],
@@ -422,7 +442,7 @@ class VerificationService:
     ) -> tuple[list[NormalizedGate], bool]:
         results: list[NormalizedGate] = []
         regression = False
-        runner = StandardGateRunner(self.docker, image)
+        runner = StandardGateRunner(self.runner, execution_environment)
         required_failed = False
         for spec in self._standard_specs(loaded):
             if required_failed:
@@ -491,7 +511,12 @@ class VerificationService:
                 )
             else:
                 property_gate = self._run_property(
-                    workspace, loaded, image, evaluator, stage, baseline=False
+                    workspace,
+                    loaded,
+                    execution_environment,
+                    evaluator,
+                    stage,
+                    baseline=False,
                 )
                 property_difference = dict(property_gate.baseline_difference or {})
                 property_difference["baseline_status"] = baseline_status.get(
@@ -544,9 +569,9 @@ class VerificationService:
             else:
                 plan = build_symbolic_execution_plan(symbolic)
                 output = self._output_dir(stage, "candidate-symbolic")
-                execution = self.docker.run(
+                execution = self.runner.run(
                     workspace=workspace,
-                    image=image,
+                    execution_environment=execution_environment,
                     command=plan.argv,
                     timeout_seconds=plan.timeout_seconds,
                     output_root=output,
@@ -607,7 +632,7 @@ class VerificationService:
         self,
         workspace: DisposableWorkspace,
         loaded: LoadedBenchmarkTask,
-        image: DockerImageIdentity,
+        execution_environment: WindowsExecutionEnvironment,
         evaluator: Path,
         stage: Path,
         *,
@@ -617,9 +642,9 @@ class VerificationService:
         profile = load_property_profile(loaded.benchmark_root, loaded.task.property_profile)
         plan = build_property_execution_plan(profile)
         output = self._output_dir(stage, f"{'baseline' if baseline else 'candidate'}-property")
-        execution = self.docker.run(
+        execution = self.runner.run(
             workspace=workspace,
-            image=image,
+            execution_environment=execution_environment,
             command=plan.argv,
             timeout_seconds=plan.timeout_seconds,
             evaluator_root=evaluator,
@@ -781,8 +806,6 @@ class VerificationService:
     def _output_dir(self, stage: Path, name: str) -> Path:
         output = stage / name
         output.mkdir()
-        if os.name != "nt":
-            output.chmod(0o777)
         return output
 
     def _store_gate(self, run_id: str, attempt: int, gate: NormalizedGate) -> NormalizedGate:

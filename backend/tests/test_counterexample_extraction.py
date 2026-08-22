@@ -207,7 +207,7 @@ def test_infrastructure_failure_is_not_a_software_counterexample() -> None:
         status="error",
         exit_code=None,
         duration_ms=0,
-        summary="Docker unavailable",
+        summary="Native verification environment unavailable",
     )
     with sessions.begin() as session:
         counterexample = CounterexampleExtractor(session).extract(

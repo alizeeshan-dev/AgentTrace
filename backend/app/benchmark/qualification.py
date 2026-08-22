@@ -23,8 +23,9 @@ from app.filesystem import paths_overlap
 from app.mutation import (
     MutationEnvironmentUnavailable,
     MutationExecution,
-    MutmutAdapter,
-    MutmutConfig,
+    MutationExecutionError,
+    PytestGremlinsAdapter,
+    PytestGremlinsConfig,
 )
 from app.repositories.git import GitError, run_git
 from app.repositories.workspace import WorkspaceManager
@@ -35,7 +36,7 @@ class MutationRunner(Protocol):
     def run(
         self,
         workspace: str | Path,
-        config: MutmutConfig,
+        config: PytestGremlinsConfig,
         *,
         manual_exclusions: Mapping[str, str] | None = None,
     ) -> MutationExecution: ...
@@ -72,7 +73,7 @@ class BenchmarkQualificationService:
     ) -> None:
         self.session = session
         self.settings = settings
-        self.mutation_runner = mutation_runner or MutmutAdapter()
+        self.mutation_runner = mutation_runner or PytestGremlinsAdapter()
         self.command_runner = command_runner or QualificationCommandRunner()
         self.workspaces = WorkspaceManager(settings.effective_workspace_root)
         self.artifacts = ArtifactStore(
@@ -113,6 +114,7 @@ class BenchmarkQualificationService:
         )
         mutation_execution: MutationExecution | None = None
         mutation_unavailable_reason: str | None = None
+        mutation_execution_error: MutationExecutionError | None = None
         try:
             baseline_visible = self.command_runner.run(
                 loaded.task.visible_test_command,
@@ -158,6 +160,8 @@ class BenchmarkQualificationService:
                 )
             except MutationEnvironmentUnavailable as error:
                 mutation_unavailable_reason = str(error)
+            except MutationExecutionError as error:
+                mutation_execution_error = error
         finally:
             try:
                 self.workspaces.reset(workspace)
@@ -167,6 +171,7 @@ class BenchmarkQualificationService:
         mutation_payload = _mutation_payload(
             mutation_execution,
             unavailable_reason=mutation_unavailable_reason,
+            execution_error=mutation_execution_error,
         )
         mutation_artifact = self.artifacts.store_text(
             run_id=artifact_id,
@@ -195,6 +200,7 @@ class BenchmarkQualificationService:
             loaded,
             mutation_execution,
             mutation_unavailable_reason=mutation_unavailable_reason,
+            mutation_execution_error=mutation_execution_error,
             status=status,
             mutation_artifact=mutation_artifact,
             log_artifact=log_artifact,
@@ -332,7 +338,7 @@ def _stage_hidden_tests(source: Path, destination: Path, *, max_file_bytes: int)
 
 def _mutation_config(
     loaded: LoadedBenchmarkTask, staged_hidden: Path, workspace: Path
-) -> MutmutConfig:
+) -> PytestGremlinsConfig:
     raw_targets = loaded.task.metadata.get("mutation_targets")
     if not isinstance(raw_targets, list) or not raw_targets:
         raise QualificationError("task metadata must define mutation_targets")
@@ -342,12 +348,11 @@ def _mutation_config(
     if len(mutation_targets) != len(raw_targets):
         raise QualificationError("mutation_targets must contain only paths")
     hidden_relative = staged_hidden.relative_to(workspace).as_posix()
-    return MutmutConfig(
+    return PytestGremlinsConfig(
         source_paths=mutation_targets,
         test_selection=("tests", hidden_relative),
         pytest_args=("-q", "-p", "no:cacheprovider"),
-        also_copy=(".agenttrace-evaluator/",),
-        max_children=1,
+        workers=1,
         timeout_seconds=max(loaded.task.timeout_seconds, 600),
     )
 
@@ -382,6 +387,7 @@ def _quality_schema(
     execution: MutationExecution | None,
     *,
     mutation_unavailable_reason: str | None,
+    mutation_execution_error: MutationExecutionError | None,
     status: str,
     mutation_artifact: ArtifactReference,
     log_artifact: ArtifactReference,
@@ -404,18 +410,29 @@ def _quality_schema(
                 "config_sha256": execution.config_sha256,
                 "platform": execution.platform,
                 "python_version": execution.python_version,
+                "report_relative_path": execution.report_relative_path,
                 "started_at": execution.started_at.isoformat(),
                 "finished_at": execution.finished_at.isoformat(),
                 "status_counts": execution.counts.status_counts,
                 "exclusion_reasons": execution.counts.exclusion_reasons,
+                "tool_reported_score": execution.tool_reported_score,
+                "score_normalization": (
+                    "killed/(killed+survived); pardoned, invalid, and unusable "
+                    "mutations excluded"
+                ),
             }
         )
     if mutation_unavailable_reason is not None:
         metadata["mutation_unavailable_reason"] = mutation_unavailable_reason
+    if mutation_execution_error is not None:
+        metadata["mutation_execution_error"] = {
+            "message": str(mutation_execution_error),
+            "command": list(mutation_execution_error.command),
+        }
     return BenchmarkQuality(
         task_id=loaded.task.task_id,
         baseline_status="verified",
-        mutation_tool="mutmut",
+        mutation_tool=execution.tool if execution else "pytest-gremlins",
         mutation_score=counts.mutation_score if counts else None,
         mutants_generated=counts.generated if counts else 0,
         mutants_killed=counts.killed if counts else 0,
@@ -431,6 +448,7 @@ def _quality_schema(
         execution_metadata=metadata,
         quality_notes=(
             mutation_unavailable_reason
+            or (str(mutation_execution_error) if mutation_execution_error else None)
             or (
                 "Mutation run contains explicitly classified unusable mutants"
                 if counts and counts.unusable
@@ -465,10 +483,25 @@ def _qualification_log(
 
 
 def _mutation_payload(
-    execution: MutationExecution | None, *, unavailable_reason: str | None
+    execution: MutationExecution | None,
+    *,
+    unavailable_reason: str | None,
+    execution_error: MutationExecutionError | None,
 ) -> dict[str, Any]:
     if execution is None:
-        return {"tool": "mutmut", "completed": False, "unavailable_reason": unavailable_reason}
+        payload: dict[str, Any] = {
+            "tool": "pytest-gremlins",
+            "completed": False,
+            "unavailable_reason": unavailable_reason,
+        }
+        if execution_error is not None:
+            payload["execution_error"] = {
+                "message": str(execution_error),
+                "command": list(execution_error.command),
+                "stdout": execution_error.stdout,
+                "stderr": execution_error.stderr,
+            }
+        return payload
     payload = asdict(execution)
     payload["started_at"] = execution.started_at.isoformat()
     payload["finished_at"] = execution.finished_at.isoformat()

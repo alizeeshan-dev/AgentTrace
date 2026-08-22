@@ -153,9 +153,11 @@ AgentTrace uses **mutation testing** to evaluate whether a benchmark's tests are
 
 The Python library used is:
 
-- **mutmut** — mutation testing for Python.
+- **pytest-gremlins** — pytest-integrated mutation testing for Python.
 
-> Implementation note: current `mutmut` releases rely on operating-system fork support. Run mutation qualification inside the project's Linux Docker environment (or another fork-capable environment) rather than depending on native platform behavior.
+AgentTrace runs mutation qualification natively on Windows through a small adapter
+that normalizes pytest-gremlins terminology into the project-level killed,
+survived, excluded/skipped/problematic, and mutation-score fields.
 
 Mutation testing occurs during **benchmark qualification**, not after every agent patch.
 
@@ -288,13 +290,13 @@ Not every technology has equal importance. The following distinction prevents th
 |---|---|
 | **CEGIS** | Conceptual framework for candidate generation, verification, counterexample production, and bounded refinement |
 | **Hypothesis** | Property-based input generation and shrinking of failing examples into counterexamples |
-| **mutmut** | Mutation testing used to quantify benchmark test-suite strength |
+| **pytest-gremlins** | Mutation testing used to quantify benchmark test-suite strength during benchmark qualification |
 | **SBFL** | Classical debugging technique used to rank suspicious source locations |
 | **Ochiai** | Suspiciousness metric used by the SBFL implementation |
 | **Coverage.py** | Records line coverage and dynamic test contexts |
 | **pytest-cov** | Convenient integration of pytest with coverage contexts |
 | **pytest** | Primary deterministic test runner and benchmark oracle |
-| **Docker** | Isolated execution environment for repository code and verification |
+| **Windows restricted subprocess runner** | Executes trusted, pre-qualified benchmark code in disposable Git workspaces and isolated Python virtual environments with hard timeouts and sanitized environments |
 | **Ruff** | Fast Python syntax/style/lint checks |
 | **mypy** | Optional typed-code verification gate |
 | **Bandit** | Advisory Python security/static-analysis gate |
@@ -452,8 +454,8 @@ flowchart TD
     SBFL --> Trace
     Trace --> DB["SQLite / Artifact Store"]
 
-    Benchmark["Benchmark Qualification"] --> Mutmut["mutmut Mutation Testing"]
-    Mutmut --> OracleScore["Verification-Strength Metadata"]
+    Benchmark["Benchmark Qualification"] --> Gremlins["pytest-gremlins Mutation Testing"]
+    Gremlins --> OracleScore["Verification-Strength Metadata"]
     OracleScore --> DB
 ```
 
@@ -760,7 +762,7 @@ Before a task is admitted:
 
 1. verify the expected bug;
 2. apply the known correct patch and confirm all intended checks pass;
-3. run `mutmut` against the relevant production code;
+3. run `pytest-gremlins` against the relevant production code;
 4. store mutation statistics;
 5. inspect obvious surviving mutants where practical;
 6. flag tasks whose test suite is too weak to distinguish meaningful faults.
@@ -946,18 +948,22 @@ The taxonomy may be refined after the pilot, but it must be frozen before the ma
 
 ## 15. Security and Isolation Model
 
-AgentTrace evaluates generated code, so the execution boundary matters even though production-grade sandbox security is outside scope.
+AgentTrace evaluates generated code natively on Windows. Its execution boundary is
+therefore restricted to **trusted, controlled, pre-qualified benchmark
+repositories**; it is not a service for executing arbitrary untrusted
+third-party repositories. Native Windows subprocess isolation is weaker than
+VM/container isolation, so this trust restriction is part of the research
+contract rather than an implementation detail.
 
 ### Required controls
 
 - disposable repository workspace for every run;
 - original repository never modified;
-- Docker-based verification;
-- network disabled during repository-code execution;
-- non-root container user;
-- CPU, memory, process, and wall-clock limits;
-- no Docker socket exposure;
-- no host secrets mounted;
+- a dedicated temporary Python virtual environment where required;
+- controlled subprocess invocation with explicit argument arrays and working directories;
+- hard wall-clock timeouts and termination of timed-out process trees;
+- a sanitized allowlisted process environment that excludes provider credentials, API keys, `.env` values, and unrelated host secrets;
+- captured and bounded stdout and stderr;
 - path normalization and traversal rejection;
 - symlink escape protection;
 - forbidden hidden-test paths;
@@ -967,6 +973,10 @@ AgentTrace evaluates generated code, so the execution boundary matters even thou
 - bounded patch size;
 - bounded tool calls;
 - one repair attempt.
+
+These controls provide reproducible experiment boundaries and reduce accidental
+host exposure, but they are not a production-grade sandbox or a formal security
+guarantee.
 
 ### Optional policy-as-code profile
 
@@ -1023,7 +1033,18 @@ run
 - latency;
 - configuration;
 - code commit;
-- benchmark version.
+- benchmark version;
+- frozen Windows environment fingerprint.
+
+### Frozen Windows experiment environment
+
+Before the main experiment, AgentTrace records a canonical environment manifest
+containing the Windows version, Python version, pytest, Hypothesis, Coverage.py,
+pytest-cov, pytest-gremlins, Ruff, mypy, Bandit, and installed CrossHair/Z3
+versions; the dependency-lock hash; AgentTrace source commit; benchmark version;
+and verification profile. A stable hash of this manifest is the experiment
+environment identifier. It replaces machine-specific paths and must remain
+fixed for all comparable runs.
 
 ### Redact
 
@@ -1259,7 +1280,7 @@ Create validated tasks and quantify their verification quality before the agent 
 - separate visible and hidden tests;
 - add known correct patches;
 - verify base failures;
-- add `mutmut`;
+- add `pytest-gremlins`;
 - record mutation statistics;
 - define task categories and difficulty.
 
@@ -1689,7 +1710,7 @@ Preserve work in this order:
 4. constrained tool agent;
 5. deterministic verification;
 6. CEGIS-style counterexample repair;
-7. `mutmut` verification-strength measurement;
+7. `pytest-gremlins` verification-strength measurement;
 8. Hypothesis counterexamples;
 9. SBFL + Ochiai;
 10. trace and experiment runner;
@@ -1713,7 +1734,7 @@ AgentTrace is research-ready when:
 - benchmark tasks have test-oracle quality metadata from mutation testing;
 - Configurations A–D are precisely reproducible;
 - the agent has no unrestricted shell tool;
-- repository code runs only in an isolated verification environment;
+- repository code runs only from disposable workspaces through the restricted Windows verifier, and only for trusted, pre-qualified benchmark repositories;
 - SBFL/Ochiai localization is reproducible;
 - Hypothesis produces concrete counterexamples on eligible tasks;
 - the CEGIS-style configuration allows no more than one repair;
@@ -1749,7 +1770,7 @@ AgentTrace must not claim that:
 - CEGIS makes the LLM formally correct;
 - mutation score is a complete measure of software quality;
 - CrossHair proves arbitrary Python programs correct;
-- Docker provides a formal security guarantee;
+- native Windows subprocess restrictions make arbitrary untrusted code safe to execute;
 - SBFL always identifies the real fault;
 - results from small Python tasks generalize to all software engineering;
 - OpenTelemetry alignment means complete standards compliance;
@@ -1761,7 +1782,7 @@ AgentTrace must not claim that:
 
 The project should be communicated in this form:
 
-> **AgentTrace investigates whether classical software-engineering and formal-methods techniques can make LLM-based automated program repair more reliable. The system adapts a bounded Counterexample-Guided Inductive Synthesis workflow: an LLM synthesizes a candidate patch, a deterministic verification oracle evaluates it, and concrete failures are returned as counterexamples for one controlled repair attempt. The verification oracle combines conventional tests with property-based testing through Hypothesis and optional SMT-backed symbolic analysis through CrossHair and Z3. Mutation testing with mutmut measures how strong each benchmark's test oracle actually is, while Spectrum-Based Fault Localization using Coverage.py and the Ochiai metric evaluates whether execution evidence can reduce the agent's repository exploration. AgentTrace records the complete observable execution trace and compares multiple agent configurations through a reproducible empirical study.**
+> **AgentTrace investigates whether classical software-engineering and formal-methods techniques can make LLM-based automated program repair more reliable. The system adapts a bounded Counterexample-Guided Inductive Synthesis workflow: an LLM synthesizes a candidate patch, a deterministic verification oracle evaluates it, and concrete failures are returned as counterexamples for one controlled repair attempt. The verification oracle combines conventional tests with property-based testing through Hypothesis and optional SMT-backed symbolic analysis through CrossHair and Z3. Mutation testing with pytest-gremlins measures how strong each benchmark's test oracle actually is, while Spectrum-Based Fault Localization using Coverage.py and the Ochiai metric evaluates whether execution evidence can reduce the agent's repository exploration. AgentTrace records the complete observable execution trace and compares multiple agent configurations through a reproducible empirical study.**
 
 This narrative should remain the center of the README, research report, application description, and interview explanation.
 
@@ -1773,7 +1794,7 @@ This narrative should remain the center of the README, research report, applicat
 
 - [ ] Counterexample-Guided Inductive Synthesis (**CEGIS**) adaptation
 - [ ] **Hypothesis**
-- [ ] **mutmut**
+- [ ] **pytest-gremlins**
 - [ ] Spectrum-Based Fault Localization (**SBFL**)
 - [ ] **Ochiai** suspiciousness metric
 - [ ] **Coverage.py**
@@ -1782,7 +1803,9 @@ This narrative should remain the center of the README, research report, applicat
 
 ## Verification and isolation
 
-- [ ] **Docker**
+- [ ] Native Windows restricted subprocess runner
+- [ ] Disposable Git workspaces and isolated Python virtual environments
+- [ ] Sanitized process environments and hard timeouts
 - [ ] **Ruff**
 - [ ] **mypy**
 - [ ] **Bandit**
@@ -1825,10 +1848,10 @@ Complete the following before any large agent implementation:
 5. build one tiny Python fixture repository containing an intentional bug;
 6. create visible and hidden tests for it;
 7. implement disposable Git workspace creation;
-8. run the baseline test suite in Docker;
+8. run the baseline test suite in a disposable workspace through the restricted Windows verifier;
 9. run Coverage.py with per-test contexts;
 10. calculate an Ochiai ranking;
-11. run `mutmut` and save the mutation score;
+11. run `pytest-gremlins` and save the mutation score;
 12. write one Hypothesis property capable of producing a counterexample for the fixture bug;
 13. implement `list_tree`, `read_file`, and `search_code`;
 14. add path, hidden-test, and symlink protections;
@@ -1854,7 +1877,7 @@ These are the primary references to study while implementing the project. They a
 
 ### Mutation testing
 
-- **mutmut documentation** — Python mutation testing and incremental mutant execution.
+- **pytest-gremlins documentation** — pytest-integrated Python mutation testing.
 - Use mutation score as benchmark-oracle metadata, not as a runtime gate after every agent patch.
 
 ### Spectrum-Based Fault Localization
@@ -1895,10 +1918,10 @@ To keep AgentTrace feasible and research-focused, the implementation should be t
 
 - bounded CEGIS-style repair;
 - constrained LLM repository tools;
-- Docker verification;
+- native Windows verification for trusted, pre-qualified benchmark repositories;
 - pytest and hidden tests;
 - Hypothesis counterexample generation on eligible tasks;
-- mutmut benchmark qualification;
+- pytest-gremlins benchmark qualification;
 - SBFL with Coverage.py and Ochiai;
 - structured traces;
 - Configurations A–D;
@@ -1920,4 +1943,3 @@ To keep AgentTrace feasible and research-focused, the implementation should be t
 - extensive frontend polish.
 
 This tiering is part of the project definition. A completed Tier 1 AgentTrace with a good experiment is a stronger research artifact than a partially completed system containing every optional technology.
-

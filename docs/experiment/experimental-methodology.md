@@ -71,7 +71,7 @@ Tasks must not be selected or removed based on agent outcomes. Post-freeze remov
 3. Generate and store a pseudorandom A/B/C order within each block using one predeclared randomization seed.
 4. Interleave blocks rather than completing one configuration globally first, reducing temporal provider or machine-load bias.
 5. Use clean disposable working copies for every patch attempt and final evaluation.
-6. Disable repository-code network access during checks and apply the same CPU, memory, and per-command timeout policy to every configuration.
+6. Run checks through the same restricted Windows subprocess policy for every configuration: explicit disposable-workspace working directory, sanitized environment, bounded output, isolated virtual environment where required, and hard per-command timeout.
 7. Preserve all terminal failures and deviations; never manually substitute a better response.
 
 If a model snapshot or a material provider behavior changes before all blocks finish, stop the experiment. Resume as a new protocol/model cohort rather than pooling incomparable runs.

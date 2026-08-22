@@ -110,7 +110,7 @@ def load_configured_symbolic_profile(
 
 
 def build_symbolic_execution_plan(loaded: LoadedSymbolicProfile) -> SymbolicExecutionPlan:
-    """Describe a no-shell CrossHair invocation for the Docker runner."""
+    """Describe a no-shell CrossHair invocation for the restricted verifier."""
 
     profile = loaded.profile
     return SymbolicExecutionPlan(

@@ -6,7 +6,7 @@ patches. Phases 0 and 1 freeze the research contract and experimental design.
 Phase 2 provides the safe repository and persistence foundation. Phase 3 adds
 the benchmark-qualification pipeline, Phase 4 adds pre-agent Ochiai evidence,
 Phase 5 adds the direct and constrained-tool patch-generation baselines, and
-Phase 6 adds the deterministic container verification oracle. Phase 7 adds
+Phase 6 adds the deterministic native-Windows verification oracle. Phase 7 adds
 Configuration C's single counterexample-guided replacement opportunity. Phase 8 adds the
 research-enhanced Configuration D and ablations. Phase 9 adds canonical traces, immutable raw
 exports, and the resumable experiment runner. Phase 10 expands the candidate benchmark to 15
@@ -26,14 +26,17 @@ tasks and adds the integration, reproducibility, and security checks summarized 
 - versioned YAML benchmark manifests with evaluator-owned hidden tests;
 - fifteen deterministic repair tasks and known-correct patches;
 - qualification gates for baseline reproduction and corrected behavior;
-- a pinned `mutmut` 3.7.0 adapter that records reproducible, explicitly
+- a `pytest-gremlins` adapter that records reproducible, explicitly
   classified mutation evidence in `BenchmarkQuality`;
 - per-test Coverage.py contexts, test-by-line spectra, and auditable Ochiai
   rankings persisted through `FaultLocalizationResult`;
 - provider-neutral structured model actions with an offline fake provider;
 - deterministic direct-patch context and a bounded, shell-free tool agent;
 - unified-diff policy validation and orchestrator-only disposable application.
-- baseline-aware, fail-fast verification in a pinned, restricted Docker image;
+- baseline-aware, fail-fast verification for trusted, pre-qualified benchmark
+  repositories in disposable Git workspaces through a restricted Windows
+  subprocess runner, with isolated virtual environments where required,
+  sanitized environments, bounded output, and hard timeouts;
 - evaluator-private deterministic Hypothesis properties with shrunk evidence;
 - advisory Ruff, mypy, Bandit, and explicitly configured CrossHair/Z3 search.
 - typed, sanitized counterexamples and a cumulative-budget CEGIS-style repair;
@@ -53,7 +56,7 @@ Python 3.12 or newer and Git are required.
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -c constraints/main-experiment.txt -e ".[dev]"
+.\.venv\Scripts\python.exe -m pip install -c constraints/main-experiment.txt -e ".[dev,verification,qualification,analysis]"
 .\.venv\Scripts\python.exe -m pytest
 .\.venv\Scripts\ruff.exe check .
 .\.venv\Scripts\mypy.exe
@@ -70,20 +73,22 @@ The service can be started locally with:
 ```
 
 Pilot qualification is curator-only and runs fixed manifest commands in a
-disposable clone. Install the qualification extra and run mutation testing in
-a fork-capable Linux container or WSL environment:
+disposable clone. Install the qualification extra and run mutation testing
+natively on Windows:
 
-```bash
-python -m pip install -e '.[dev,qualification]'
-python -m app.benchmark.cli benchmark/tasks/boundary-empty-input.yaml \
+```powershell
+python -m pip install -e ".[dev,qualification]"
+python -m app.benchmark.cli benchmark/tasks/boundary-empty-input.yaml `
   --benchmark-root benchmark --state-dir .agenttrace
 ```
 
-Native Windows can run the baseline and known-correct-patch qualification
-gates, but mutation remains `mutation_unavailable` until the same command runs
-under Linux or WSL. Candidate verification is a separate Phase 6 service and
-refuses to execute repository code when Docker or its configured image is
-unavailable. See `docs/verification.md` for its isolation and image contract.
+The qualification pipeline uses pytest-gremlins only during benchmark
+qualification; it does not mutation-test every LLM patch. Candidate
+verification is a separate Phase 6 service using the restricted native Windows
+runner. AgentTrace executes only trusted, controlled, pre-qualified benchmark
+repositories and does not claim that native subprocess restrictions safely
+sandbox arbitrary untrusted code. See `docs/verification.md` for the execution
+boundary and frozen Windows environment-fingerprint contract.
 
 Qualified tasks can be localized before any model call:
 

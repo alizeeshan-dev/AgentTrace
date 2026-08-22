@@ -11,7 +11,11 @@ from typing import Literal
 
 from app.repositories.workspace import DisposableWorkspace
 
-from .docker import DockerExecution, DockerImageIdentity, DockerRunner
+from .native import (
+    WindowsExecution,
+    WindowsExecutionEnvironment,
+    WindowsVerificationRunner,
+)
 
 GateStatus = Literal["passed", "failed", "timed_out", "error"]
 GateName = Literal[
@@ -155,11 +159,15 @@ class StandardGateFactory:
 
 
 class StandardGateRunner:
-    """Map restricted Docker execution into normalized internal gate outcomes."""
+    """Map restricted native execution into normalized internal gate outcomes."""
 
-    def __init__(self, docker: DockerRunner, image: DockerImageIdentity) -> None:
-        self.docker = docker
-        self.image = image
+    def __init__(
+        self,
+        runner: WindowsVerificationRunner,
+        execution_environment: WindowsExecutionEnvironment,
+    ) -> None:
+        self.runner = runner
+        self.execution_environment = execution_environment
 
     def run(
         self,
@@ -169,9 +177,9 @@ class StandardGateRunner:
         evaluator_root: str | Path | None = None,
         output_root: str | Path | None = None,
     ) -> GateOutcome:
-        execution = self.docker.run(
+        execution = self.runner.run(
             workspace=workspace,
-            image=self.image,
+            execution_environment=self.execution_environment,
             command=spec.command,
             timeout_seconds=spec.timeout_seconds,
             evaluator_root=evaluator_root,
@@ -231,9 +239,9 @@ def _pytest_command(command: str, *, output_name: str, hidden: bool) -> tuple[st
     )
 
 
-def _status_and_summary(execution: DockerExecution) -> tuple[GateStatus, str]:
+def _status_and_summary(execution: WindowsExecution) -> tuple[GateStatus, str]:
     if execution.infrastructure_error is not None:
-        return "error", "Docker verification environment was unavailable"
+        return "error", "Native verification process was unavailable"
     if execution.timed_out:
         return "timed_out", "Verification gate exceeded its hard timeout"
     if execution.exit_code == 0:

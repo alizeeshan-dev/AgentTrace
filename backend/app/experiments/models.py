@@ -23,6 +23,71 @@ BenchmarkVersion = Annotated[
         pattern=r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$",
     ),
 ]
+Sha256Digest = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+
+
+class FrozenWindowsEnvironment(ResearchSchema):
+    """Reference to the separately materialized native Windows manifest."""
+
+    runner: Literal["native_windows"] = "native_windows"
+    manifest_path: str
+    environment_id: FilesystemIdentifier
+    fingerprint_sha256: Sha256Digest
+
+    @field_validator("manifest_path")
+    @classmethod
+    def manifest_is_portable_json(cls, value: str) -> str:
+        normalized = validate_repository_path(value)
+        if not normalized.casefold().endswith(".json"):
+            raise ValueError("environment manifest must be a JSON artifact")
+        return normalized
+
+
+class ExperimentOutputLocations(ResearchSchema):
+    """Raw and derived namespaces remain physically distinct."""
+
+    raw: str = "raw/"
+    derived: str = "derived/"
+
+    @field_validator("raw", "derived")
+    @classmethod
+    def output_path_is_portable_directory(cls, value: str) -> str:
+        normalized = validate_repository_path(value)
+        return normalized if normalized.endswith("/") else f"{normalized}/"
+
+    @model_validator(mode="after")
+    def raw_and_derived_are_distinct(self) -> ExperimentOutputLocations:
+        if self.raw.casefold() == self.derived.casefold():
+            raise ValueError("raw and derived output locations must differ")
+        return self
+
+
+class SbflExperimentSettings(ResearchSchema):
+    metric: Literal["ochiai"] = "ochiai"
+    top_k: Annotated[int, Field(ge=1, le=100)] = 10
+
+
+class HypothesisExperimentSettings(ResearchSchema):
+    enabled_for_eligible_tasks: bool = True
+    derandomize: Literal[True] = True
+    example_database: Literal["disabled"] = "disabled"
+
+
+class CrossHairExperimentSettings(ResearchSchema):
+    enabled_for_eligible_tasks: bool = True
+    no_counterexample_is_proof: Literal[False] = False
+
+
+class ExperimentCostConfiguration(ResearchSchema):
+    """Frozen provider pricing used only for derived cost calculations."""
+
+    currency: Literal["USD"] = "USD"
+    input_per_million_tokens: float | None = Field(default=None, ge=0)
+    output_per_million_tokens: float | None = Field(default=None, ge=0)
+    source: Annotated[
+        str,
+        StringConstraints(strip_whitespace=True, min_length=1, max_length=500),
+    ]
 
 
 class ExperimentConfigurationSpec(ResearchSchema):
@@ -60,7 +125,7 @@ class ExperimentConfigurationSpec(ResearchSchema):
 class ExperimentConfig(ResearchSchema):
     """Frozen cross-product definition loaded before an experiment starts."""
 
-    schema_version: Literal[1] = 1
+    schema_version: Literal[1, 2] = 1
     experiment_id: FilesystemIdentifier
     benchmark_version: BenchmarkVersion
     tasks: Annotated[list[str], Field(min_length=1, max_length=10_000)]
@@ -77,6 +142,12 @@ class ExperimentConfig(ResearchSchema):
             pattern=r"^[A-Za-z0-9]+(?:[._-][A-Za-z0-9]+)*$",
         ),
     ] = "deterministic-v1"
+    environment: FrozenWindowsEnvironment | None = None
+    outputs: ExperimentOutputLocations | None = None
+    sbfl: SbflExperimentSettings | None = None
+    hypothesis: HypothesisExperimentSettings | None = None
+    crosshair: CrossHairExperimentSettings | None = None
+    cost: ExperimentCostConfiguration | None = None
 
     @field_validator("tasks")
     @classmethod
@@ -106,4 +177,18 @@ class ExperimentConfig(ResearchSchema):
         )
         if needs_repair and self.max_repairs != 1:
             raise ValueError("C/D conditions require max_repairs=1")
+        if self.schema_version == 2:
+            required = {
+                "environment": self.environment,
+                "outputs": self.outputs,
+                "sbfl": self.sbfl,
+                "hypothesis": self.hypothesis,
+                "crosshair": self.crosshair,
+                "cost": self.cost,
+            }
+            missing = sorted(name for name, value in required.items() if value is None)
+            if missing:
+                raise ValueError(
+                    "schema version 2 requires frozen fields: " + ", ".join(missing)
+                )
         return self

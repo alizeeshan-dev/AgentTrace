@@ -1,11 +1,10 @@
-"""Deterministic, container-isolated verification primitives."""
+"""Deterministic native-Windows verification primitives."""
 
-from .docker import (
-    DockerEnvironmentError,
-    DockerExecution,
-    DockerImageIdentity,
-    DockerLimits,
-    DockerRunner,
+from .native import (
+    NativeEnvironmentError,
+    WindowsExecution,
+    WindowsExecutionEnvironment,
+    WindowsVerificationRunner,
 )
 from .gates import GateOutcome, GateSpec, StandardGateFactory, StandardGateRunner
 from .service import (
@@ -17,11 +16,7 @@ from .service import (
 )
 
 __all__ = [
-    "DockerEnvironmentError",
-    "DockerExecution",
-    "DockerImageIdentity",
-    "DockerLimits",
-    "DockerRunner",
+    "NativeEnvironmentError",
     "GateOutcome",
     "GateSpec",
     "NormalizedGate",
@@ -31,4 +26,7 @@ __all__ = [
     "VerificationRun",
     "VerificationService",
     "VerificationServiceError",
+    "WindowsExecution",
+    "WindowsExecutionEnvironment",
+    "WindowsVerificationRunner",
 ]

@@ -47,7 +47,7 @@ timeout_seconds: 12
     return root, repository
 
 
-def test_property_profile_builds_deterministic_container_plan(tmp_path: Path) -> None:
+def test_property_profile_builds_deterministic_native_plan(tmp_path: Path) -> None:
     root, repository = _property_fixture(tmp_path)
 
     loaded = load_property_profile(root, "boundary-properties", repository_path=repository)
@@ -56,13 +56,13 @@ def test_property_profile_builds_deterministic_container_plan(tmp_path: Path) ->
     assert plan.result_path.as_posix() == "/output/property-counterexamples.json"
     assert plan.timeout_seconds == 12
     assert plan.evaluator_mounts[0].read_only is True
-    assert plan.evaluator_mounts[0].container_path.as_posix().startswith(
+    assert plan.evaluator_mounts[0].virtual_path.as_posix().startswith(
         "/evaluator/property-tests/"
     )
     plugin = next(
         file.content.decode("utf-8")
         for file in plan.generated_files
-        if file.container_path.name == "agentrace_property_plugin.py"
+        if file.virtual_path.name == "agentrace_property_plugin.py"
     )
     assert "max_examples=25" in plugin
     assert "deadline=None" in plugin

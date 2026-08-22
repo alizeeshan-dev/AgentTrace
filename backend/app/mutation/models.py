@@ -1,4 +1,4 @@
-"""Typed mutation-qualification results independent of mutmut internals."""
+"""Typed mutation-qualification results independent of tool internals."""
 
 from __future__ import annotations
 
@@ -10,11 +10,10 @@ from datetime import datetime
 class MutationCounts:
     """Normalized mutant classifications used by AgentTrace.
 
-    ``excluded`` includes explicit equivalent-mutant exclusions and mutants
-    rejected by mutmut's optional type-check filter. ``unusable`` covers
-    statuses that cannot contribute to the research score, such as timeouts,
-    crashes, missing test associations, and interrupted/not-run mutants.
-    These categories are deliberately not folded into ``survived``.
+    ``excluded`` includes explicit equivalent-mutation exclusions, tool-level
+    pardons, and invalid mutations. ``unusable`` covers statuses that cannot
+    contribute to the normalized research score, such as timeouts. These
+    categories are deliberately not folded into ``survived``.
     """
 
     generated: int
@@ -32,11 +31,12 @@ class MutationCounts:
 
 @dataclass(frozen=True, slots=True)
 class MutationExecution:
-    """A completed mutmut run plus the evidence needed for reproduction."""
+    """A completed mutation-tool run plus reproducibility evidence."""
 
     counts: MutationCounts
     tool: str
     tool_version: str
+    tool_reported_score: float | None
     commands: tuple[tuple[str, ...], ...]
     config_sha256: str
     started_at: datetime
@@ -46,17 +46,14 @@ class MutationExecution:
     python_version: str
     run_stdout: str
     run_stderr: str
-    export_stdout: str
-    export_stderr: str
-    results_output: str
-    raw_stats_json: str
+    report_relative_path: str
+    raw_report_json: str
 
 
 @dataclass(frozen=True, slots=True)
 class MutationEnvironment:
-    """Availability of the fork-capable mutmut qualification environment."""
+    """Availability of the configured mutation qualification environment."""
 
     available: bool
     executable: str | None
     reason: str | None
-

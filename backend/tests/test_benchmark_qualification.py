@@ -11,7 +11,7 @@ from app.benchmark import BenchmarkQualificationService
 from app.config import Settings
 from app.db.engine import create_database_engine, init_database, make_session_factory
 from app.db.models import BenchmarkQuality
-from app.mutation import MutationCounts, MutationExecution, MutmutConfig
+from app.mutation import MutationCounts, MutationExecution, PytestGremlinsConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BENCHMARK_ROOT = PROJECT_ROOT / "benchmark"
@@ -21,7 +21,7 @@ class _SuccessfulMutationRunner:
     def run(
         self,
         workspace: str | Path,
-        config: MutmutConfig,
+        config: PytestGremlinsConfig,
         *,
         manual_exclusions: Mapping[str, str] | None = None,
     ) -> MutationExecution:
@@ -44,21 +44,20 @@ class _SuccessfulMutationRunner:
                 status_counts={"killed": 4, "survived": 1},
                 exclusion_reasons={},
             ),
-            tool="mutmut",
-            tool_version="3.7.0",
-            commands=(("mutmut", "run"),),
+            tool="pytest-gremlins",
+            tool_version="1.9.0",
+            tool_reported_score=0.8,
+            commands=(("python", "-m", "pytest", "--gremlins"),),
             config_sha256="a" * 64,
             started_at=timestamp,
             finished_at=timestamp,
             duration_ms=25,
-            platform="linux-test",
+            platform="windows-test",
             python_version="3.12.0",
             run_stdout="mutation run complete",
             run_stderr="",
-            export_stdout="stats exported",
-            export_stderr="",
-            results_output="four killed; one survived",
-            raw_stats_json='{"killed":4,"survived":1,"total":5}',
+            report_relative_path="coverage/gremlins/gremlins.json",
+            raw_report_json='{"summary":{"total":5,"zapped":4,"survived":1}}',
         )
 
 

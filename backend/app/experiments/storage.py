@@ -11,6 +11,7 @@ from typing import Any
 
 from app.filesystem import validate_runtime_root
 from app.repositories.identifiers import validate_safe_identifier
+from app.schemas.common import validate_repository_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,15 +21,31 @@ class ExperimentDataLayout:
     derived: Path
 
     @classmethod
-    def create(cls, state_dir: str | Path, experiment_id: str) -> ExperimentDataLayout:
+    def create(
+        cls,
+        state_dir: str | Path,
+        experiment_id: str,
+        *,
+        raw_location: str = "raw/",
+        derived_location: str = "derived/",
+    ) -> ExperimentDataLayout:
         safe_id = validate_safe_identifier(experiment_id, field_name="experiment_id")
         state = validate_runtime_root(Path(state_dir), field_name="state_dir")
         root = state / "experiments" / safe_id
-        raw = root / "raw"
-        derived = root / "derived"
+        raw_relative = validate_repository_path(raw_location).rstrip("/")
+        derived_relative = validate_repository_path(derived_location).rstrip("/")
+        raw = root.joinpath(*raw_relative.split("/"))
+        derived = root.joinpath(*derived_relative.split("/"))
+        if raw == derived or raw in derived.parents or derived in raw.parents:
+            raise ValueError("raw and derived experiment locations must be disjoint")
         raw.mkdir(parents=True, exist_ok=True)
         derived.mkdir(parents=True, exist_ok=True)
-        return cls(root.resolve(), raw.resolve(), derived.resolve())
+        resolved_root = root.resolve()
+        resolved_raw = raw.resolve()
+        resolved_derived = derived.resolve()
+        resolved_raw.relative_to(resolved_root)
+        resolved_derived.relative_to(resolved_root)
+        return cls(resolved_root, resolved_raw, resolved_derived)
 
     def write_raw_once(self, name: str, payload: dict[str, Any]) -> Path:
         """Create one canonical raw JSON record and refuse every overwrite."""

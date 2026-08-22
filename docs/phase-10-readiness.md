@@ -1,8 +1,9 @@
 # Phase 10 research-readiness record
 
-This record distinguishes completed backend validation from evidence that the
-current Windows host cannot produce. It must not be cited as a completed main
-experiment freeze until every item in **Freeze blockers** is cleared.
+This record distinguishes the completed Phase 10 engineering candidate from
+the native-Windows migration and empirical evidence that still must be frozen.
+It must not be cited as a completed main-experiment freeze until every item in
+**Freeze blockers** is cleared.
 
 ## Benchmark inventory
 
@@ -34,10 +35,12 @@ and the corrected visible and hidden suites passed. The 31 invariant tests in
 
 ## Qualification and SBFL evidence
 
-Qualification evidence is persisted beneath `.agenttrace/phase10-main`.
-Every task has `baseline_status=verified`. Mutation fields are deliberately
-null/incomplete with the reason `mutmut 3.7 requires OS fork support; use Linux
-Docker or WSL`; zero mutants are not presented as a mutation score.
+Legacy qualification evidence is persisted beneath `.agenttrace/phase10-main`.
+Every task has `baseline_status=verified`. The legacy mutation fields are
+deliberately null/incomplete and must be replaced by real pytest-gremlins
+qualification results before the benchmark is frozen; zero gremlins must not
+be presented as a mutation score unless the tool completed and actually
+generated none.
 
 Ochiai localization completed for all 15 tasks. Known-fault containment is
 9/15 at Top-1, 15/15 at Top-5, and 15/15 at Top-10. Coverage artifacts contain
@@ -46,33 +49,32 @@ repository-source observations and opaque hidden-test identifiers only.
 ## Integration and security validation
 
 The common experiment interface was exercised for A, B, C, D, D1, D2, and D3
-with the deterministic provider and an injected verification seam. The test
-checks common result fields, feature separation, stable raw exports, provider
-and token metadata, P0/P1 preservation, exactly one repair, counterexample
-persistence, and complete attempt-2 verification. The real D3 benchmark
-profile resolves CrossHair as enabled and builds a bounded CrossHair/Z3 plan;
-actual symbolic execution remains a Docker-runtime check.
+with the deterministic provider and an injected verification seam before the
+native-Windows migration. That evidence covers common result fields, feature
+separation, stable raw exports, provider and token metadata, P0/P1
+preservation, exactly one repair, counterexample persistence, and complete
+attempt-2 verification. Native CrossHair/Z3 execution remains subject to the
+separate migration QA.
 
-Phase 10 hardened dotenv and credential protection, JUnit evidence integrity,
-isolated Python startup, property-result bounds, artifact permissions, and
-Docker resource restrictions. Candidate patches continue to execute only in
-Docker. Curator qualification and SBFL execute only fixed, trusted benchmark
-fixtures; this curator trust boundary is distinct from candidate execution.
-Docker reduces risk but is not a formal security guarantee. A writable output
-bind has per-file and time limits but no aggregate filesystem quota.
+The current architecture executes only trusted, controlled, pre-qualified
+benchmark repositories. Candidate and qualification commands run in disposable
+Git workspaces through the restricted Windows subprocess runner, using an
+isolated Python virtual environment where required, explicit working
+directories, sanitized environments, bounded output, process-tree termination,
+and hard timeouts. Path, hidden-test, `.git`, patch, artifact, and credential
+protections remain part of the boundary. Native Windows subprocess isolation
+is weaker than VM/container isolation and is not a production-grade sandbox
+for arbitrary untrusted code.
 
 ## Reproducibility
 
 Host dependency versions are constrained in
-`constraints/main-experiment.txt`; the verifier image uses exact versions in
-`docker/verification/requirements.txt`. A fresh virtual environment installed
-the constrained development and qualification extras and passed 34 targeted
-API, benchmark, and seven-condition integration tests. A clean state directory
-then initialized the database, loaded and baseline-qualified the original
-pilot tasks, generated SBFL, executed the 12-cell fake-provider matrix,
-exported canonical version-2 traces, and resumed without changing raw hashes.
-Docker absence was recorded as infrastructure failure rather than model
-failure.
+`constraints/main-experiment.txt`. The frozen experiment must record a Windows
+environment manifest containing the OS and Python versions, verification-tool
+versions (including pytest-gremlins), dependency-lock hash, source commit,
+benchmark version, verification profile, and stable environment fingerprint.
+This fingerprint replaces the former container-image identity in experiment
+metadata.
 
 The selected provider identity is now part of the typed model configuration,
 stable run digest, and fairness contract. The active adapter must match it.
@@ -81,15 +83,24 @@ trace metadata.
 
 ## Freeze blockers
 
-The main experiment is **not frozen** on this host because:
+The main experiment is **not frozen** because:
 
-1. Docker and the immutable verifier image ID are unavailable.
-2. WSL/Linux is unavailable, so mutmut results for all 15 tasks are incomplete.
+1. The separate migration QA must validate the native Windows verifier and
+   complete pytest-gremlins qualification for all 15 tasks.
+2. The frozen Windows environment manifest and fingerprint must be generated
+   from the validated environment.
 3. No real provider factory, model identifier, or immutable model version was
    selected in the specification or environment.
+4. `experiments/main.yaml` does not yet contain finalized scientific values.
+
+The native Windows verifier and pytest-gremlins qualification pipeline are the
+only current experiment environment; no secondary compatibility environment is
+a freeze prerequisite.
 
 `experiments/main.example.yaml` records the intended 60-cell A/B/C/D matrix and
 all other proposed settings, but its explicit provider/model placeholders make
-it a template, not a frozen experimental condition. It must be copied to
-`experiments/main.yaml`, completed, mutation-qualified, verified against a
-pinned Docker image, and committed before Phase 11 data collection.
+it a template, not a frozen experimental condition. After migration QA, it
+must be copied to `experiments/main.yaml`, completed with the frozen Windows
+environment fingerprint and real provider/model settings, linked to persisted
+pytest-gremlins qualification evidence, and committed before Phase 11 data
+collection.

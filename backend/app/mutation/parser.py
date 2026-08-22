@@ -1,67 +1,18 @@
-"""Parse the stable mutmut 3.7 CI statistics and status interfaces."""
+"""Normalize pytest-gremlins JSON reports for AgentTrace research metrics."""
 
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Mapping
+from typing import Any
 
 from app.mutation.models import MutationCounts
 
-MUTMUT_STATUSES = frozenset(
-    {
-        "not checked",
-        "killed",
-        "survived",
-        "no tests",
-        "skipped",
-        "suspicious",
-        "timeout",
-        "check was interrupted by user",
-        "segfault",
-        "caught by type check",
-    }
+PYTEST_GREMLINS_STATUSES = frozenset(
+    {"zapped", "survived", "timeout", "error", "pardoned"}
 )
-
-_EXPORTED_FIELDS = frozenset(
-    {
-        "killed",
-        "survived",
-        "total",
-        "no_tests",
-        "skipped",
-        "suspicious",
-        "timeout",
-        "check_was_interrupted_by_user",
-        "segfault",
-        # Accepted for forward-compatible evidence without changing semantics.
-        "not_checked",
-        "caught_by_type_check",
-    }
-)
-_REQUIRED_EXPORTED_FIELDS = frozenset(
-    {
-        "killed",
-        "survived",
-        "total",
-        "no_tests",
-        "skipped",
-        "suspicious",
-        "timeout",
-        "check_was_interrupted_by_user",
-        "segfault",
-    }
-)
-_STATUS_LINE = re.compile(r"^\s*(?P<name>\S.+?):\s+(?P<status>[^:\r\n]+?)\s*$")
-_UNUSABLE_STATUSES = frozenset(
-    {
-        "not checked",
-        "no tests",
-        "suspicious",
-        "timeout",
-        "check was interrupted by user",
-        "segfault",
-    }
+_REQUIRED_SUMMARY_FIELDS = frozenset(
+    {"total", "zapped", "survived", "timeout", "error", "pardoned", "percentage"}
 )
 
 
@@ -70,7 +21,7 @@ class MutationParseError(ValueError):
 
 
 def calculate_mutation_score(killed: int, survived: int) -> float | None:
-    """Return ``killed / (killed + survived)`` or ``None`` without usable mutants."""
+    """Return AgentTrace's normalized ``killed / (killed + survived)`` score."""
 
     if isinstance(killed, bool) or isinstance(survived, bool):
         raise TypeError("Mutation counts must be integers, not booleans")
@@ -82,135 +33,146 @@ def calculate_mutation_score(killed: int, survived: int) -> float | None:
     return None if denominator == 0 else killed / denominator
 
 
-def parse_exported_stats(raw_json: str | bytes) -> dict[str, int]:
-    """Parse ``mutmut export-cicd-stats`` output for the pinned 3.7 interface."""
-
-    try:
-        parsed = json.loads(raw_json)
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise MutationParseError("mutmut CI statistics are not valid JSON") from error
-    if not isinstance(parsed, dict):
-        raise MutationParseError("mutmut CI statistics must be a JSON object")
-
-    keys = set(parsed)
-    missing = _REQUIRED_EXPORTED_FIELDS - keys
-    unknown = keys - _EXPORTED_FIELDS
-    if missing:
-        raise MutationParseError(f"mutmut CI statistics omit fields: {sorted(missing)}")
-    if unknown:
-        raise MutationParseError(
-            f"mutmut CI statistics contain unsupported fields: {sorted(unknown)}"
-        )
-
-    result: dict[str, int] = {}
-    for key, value in parsed.items():
-        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise MutationParseError(f"mutmut statistic {key!r} must be a non-negative integer")
-        result[str(key)] = value
-    return result
-
-
-def parse_status_output(output: str) -> dict[str, str]:
-    """Parse ``mutmut results --all`` into mutant-name/status pairs."""
-
-    mutants: dict[str, str] = {}
-    for line_number, line in enumerate(output.splitlines(), start=1):
-        if not line.strip():
-            continue
-        match = _STATUS_LINE.fullmatch(line)
-        if match is None:
-            raise MutationParseError(f"Unrecognized mutmut status line {line_number}")
-        name = match.group("name").strip()
-        status = _normalize_status(match.group("status"))
-        if status not in MUTMUT_STATUSES:
-            raise MutationParseError(f"Unsupported mutmut status {status!r}")
-        if name in mutants:
-            raise MutationParseError(f"Duplicate mutmut result for {name!r}")
-        mutants[name] = status
-    if not mutants:
-        raise MutationParseError("mutmut returned no per-mutant status evidence")
-    return mutants
-
-
-def parse_mutation_result(
-    raw_stats_json: str | bytes,
-    status_output: str,
+def parse_gremlins_report(
+    raw_report_json: str | bytes,
     *,
     manual_exclusions: Mapping[str, str] | None = None,
 ) -> MutationCounts:
-    """Reconcile mutmut's JSON totals with per-mutant classifications.
+    """Convert one pytest-gremlins JSON report into normalized classifications.
 
-    Manual exclusions are intended for reviewed equivalent mutants. They must
-    name a killed or survived mutant and include a non-empty reason, ensuring
-    exclusions remain auditable rather than silently changing the score.
+    AgentTrace deliberately scores only ordinary detected (``zapped``) and
+    surviving mutations. ``pardoned`` mutations and reviewed manual
+    exclusions are excluded; timeouts are unusable; execution errors are
+    invalid exclusions. The tool-reported percentage is preserved in the raw
+    artifact but is not substituted for this normalized research score.
     """
 
-    exported = parse_exported_stats(raw_stats_json)
-    statuses = parse_status_output(status_output)
-    if exported["total"] != len(statuses):
-        raise MutationParseError("mutmut total does not match per-mutant status evidence")
+    report = _parse_report_object(raw_report_json)
+    summary = _parse_summary(report.get("summary"))
+    results = _parse_results(report.get("results"))
 
-    status_counts = {status: 0 for status in sorted(MUTMUT_STATUSES)}
-    for status in statuses.values():
+    if summary["total"] != len(results):
+        raise MutationParseError(
+            "pytest-gremlins total does not match per-gremlin result evidence"
+        )
+
+    status_counts = {status: 0 for status in sorted(PYTEST_GREMLINS_STATUSES)}
+    statuses: dict[str, str] = {}
+    for gremlin_id, status in results:
+        statuses[gremlin_id] = status
         status_counts[status] += 1
-    for exported_key, status in _exported_statuses().items():
-        if exported_key in exported and exported[exported_key] != status_counts[status]:
+
+    for status in PYTEST_GREMLINS_STATUSES:
+        if summary[status] != status_counts[status]:
             raise MutationParseError(
-                f"mutmut field {exported_key!r} conflicts with per-mutant status evidence"
+                f"pytest-gremlins summary field {status!r} conflicts with result evidence"
             )
 
     reasons = _validate_exclusions(manual_exclusions or {}, statuses)
-    explicitly_excluded = set(reasons)
-    invalid_names = {
-        name for name, status in statuses.items() if status == "caught by type check"
-    }
-    for name in invalid_names:
-        reasons.setdefault(name, "mutmut type-check filter rejected the mutant")
+    manually_excluded = set(reasons)
+    invalid_ids = {name for name, status in statuses.items() if status == "error"}
+    pardoned_ids = {name for name, status in statuses.items() if status == "pardoned"}
+    for name in sorted(pardoned_ids):
+        reasons.setdefault(name, "pytest-gremlins pardoned this mutation")
+    for name in sorted(invalid_ids):
+        reasons.setdefault(name, "pytest-gremlins reported an execution error")
 
-    killed = status_counts["killed"] - sum(
-        statuses[name] == "killed" for name in explicitly_excluded
+    killed = status_counts["zapped"] - sum(
+        statuses[name] == "zapped" for name in manually_excluded
     )
     survived = status_counts["survived"] - sum(
-        statuses[name] == "survived" for name in explicitly_excluded
+        statuses[name] == "survived" for name in manually_excluded
     )
-    unusable = sum(status_counts[status] for status in _UNUSABLE_STATUSES)
-    completed = (
-        status_counts["not checked"] == 0
-        and status_counts["check was interrupted by user"] == 0
-    )
+    excluded = len(manually_excluded | pardoned_ids | invalid_ids)
 
     return MutationCounts(
-        generated=exported["total"],
+        generated=int(summary["total"]),
         killed=killed,
         survived=survived,
-        excluded=len(reasons),
-        skipped=status_counts["skipped"],
-        invalid=len(invalid_names),
-        unusable=unusable,
+        excluded=excluded,
+        skipped=0,
+        invalid=len(invalid_ids),
+        unusable=status_counts["timeout"],
         mutation_score=calculate_mutation_score(killed, survived),
-        completed=completed,
+        completed=True,
         status_counts=status_counts,
         exclusion_reasons=reasons,
     )
 
 
-def _normalize_status(value: str) -> str:
-    return " ".join(value.strip().lower().replace("_", " ").replace("-", " ").split())
+def _parse_report_object(raw_report_json: str | bytes) -> dict[str, Any]:
+    try:
+        parsed = json.loads(raw_report_json)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise MutationParseError("pytest-gremlins report is not valid JSON") from error
+    if not isinstance(parsed, dict):
+        raise MutationParseError("pytest-gremlins report must be a JSON object")
+    return parsed
 
 
-def _exported_statuses() -> dict[str, str]:
-    return {
-        "killed": "killed",
-        "survived": "survived",
-        "no_tests": "no tests",
-        "skipped": "skipped",
-        "suspicious": "suspicious",
-        "timeout": "timeout",
-        "check_was_interrupted_by_user": "check was interrupted by user",
-        "segfault": "segfault",
-        "not_checked": "not checked",
-        "caught_by_type_check": "caught by type check",
-    }
+def _parse_summary(value: object) -> dict[str, int | float]:
+    if not isinstance(value, dict):
+        raise MutationParseError("pytest-gremlins report must contain a summary object")
+    missing = _REQUIRED_SUMMARY_FIELDS - set(value)
+    if missing:
+        raise MutationParseError(
+            f"pytest-gremlins summary omits fields: {sorted(missing)}"
+        )
+
+    parsed: dict[str, int | float] = {}
+    for field in _REQUIRED_SUMMARY_FIELDS - {"percentage"}:
+        item = value[field]
+        if isinstance(item, bool) or not isinstance(item, int) or item < 0:
+            raise MutationParseError(
+                f"pytest-gremlins summary field {field!r} must be a non-negative integer"
+            )
+        parsed[field] = item
+    percentage = value["percentage"]
+    if (
+        isinstance(percentage, bool)
+        or not isinstance(percentage, (int, float))
+        or not 0 <= percentage <= 100
+    ):
+        raise MutationParseError(
+            "pytest-gremlins summary field 'percentage' must be between 0 and 100"
+        )
+    parsed["percentage"] = float(percentage)
+    return parsed
+
+
+def _parse_results(value: object) -> list[tuple[str, str]]:
+    if not isinstance(value, list):
+        raise MutationParseError("pytest-gremlins report must contain a results array")
+    parsed: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(value):
+        if not isinstance(item, dict):
+            raise MutationParseError(
+                f"pytest-gremlins result {index} must be a JSON object"
+            )
+        gremlin_id = item.get("gremlin_id")
+        status = item.get("status")
+        if (
+            not isinstance(gremlin_id, str)
+            or not gremlin_id.strip()
+            or any(character in gremlin_id for character in "\x00\r\n")
+        ):
+            raise MutationParseError(
+                f"pytest-gremlins result {index} has an invalid gremlin_id"
+            )
+        gremlin_id = gremlin_id.strip()
+        if gremlin_id in seen:
+            raise MutationParseError(
+                f"pytest-gremlins report duplicates gremlin {gremlin_id!r}"
+            )
+        normalized_status = status.strip().lower() if isinstance(status, str) else ""
+        if normalized_status not in PYTEST_GREMLINS_STATUSES:
+            raise MutationParseError(
+                f"pytest-gremlins result {gremlin_id!r} has unsupported status {status!r}"
+            )
+        seen.add(gremlin_id)
+        parsed.append((gremlin_id, normalized_status))
+    return parsed
 
 
 def _validate_exclusions(
@@ -219,12 +181,12 @@ def _validate_exclusions(
     validated: dict[str, str] = {}
     for name, reason in requested.items():
         if name not in statuses:
-            raise MutationParseError(f"Excluded mutant {name!r} does not exist")
-        if statuses[name] not in {"killed", "survived"}:
+            raise MutationParseError(f"Excluded mutation {name!r} does not exist")
+        if statuses[name] not in {"zapped", "survived"}:
             raise MutationParseError(
-                f"Mutant {name!r} already has non-score status {statuses[name]!r}"
+                f"Mutation {name!r} already has non-score status {statuses[name]!r}"
             )
         if not isinstance(reason, str) or not reason.strip() or "\x00" in reason:
-            raise MutationParseError(f"Excluded mutant {name!r} needs a reason")
+            raise MutationParseError(f"Excluded mutation {name!r} needs a reason")
         validated[name] = reason.strip()
     return validated

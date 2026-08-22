@@ -28,9 +28,9 @@ class CommandOutcome:
 class QualificationCommandRunner:
     """Run evaluator-authored commands without a shell.
 
-    This runner exists only for trusted pilot qualification. Agent-controlled
-    commands are never accepted here. Phase 6 must use the isolated Docker
-    verifier for arbitrary repository execution.
+    This runner exists only for trusted, pre-qualified benchmark repositories.
+    Agent-controlled commands are never accepted here; candidate verification
+    uses the native restricted runner in a separate disposable workspace.
     """
 
     def __init__(self, *, max_output_chars: int = 200_000) -> None:

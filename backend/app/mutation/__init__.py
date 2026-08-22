@@ -1,39 +1,35 @@
 """Mutation-testing integration used only during benchmark qualification."""
 
 from app.mutation.adapter import (
-    RECOMMENDED_MUTMUT_REQUIREMENT,
-    SUPPORTED_MUTMUT_VERSION,
+    RECOMMENDED_PYTEST_GREMLINS_REQUIREMENT,
+    SUPPORTED_PYTEST_GREMLINS_VERSION,
     MutationEnvironmentUnavailable,
     MutationExecutionError,
-    MutmutAdapter,
-    MutmutConfig,
-    build_mutmut_commands,
-    detect_mutmut_environment,
+    PytestGremlinsAdapter,
+    PytestGremlinsConfig,
+    build_pytest_gremlins_commands,
+    detect_pytest_gremlins_environment,
 )
 from app.mutation.models import MutationCounts, MutationEnvironment, MutationExecution
 from app.mutation.parser import (
     MutationParseError,
     calculate_mutation_score,
-    parse_exported_stats,
-    parse_mutation_result,
-    parse_status_output,
+    parse_gremlins_report,
 )
 
 __all__ = [
-    "RECOMMENDED_MUTMUT_REQUIREMENT",
-    "SUPPORTED_MUTMUT_VERSION",
+    "RECOMMENDED_PYTEST_GREMLINS_REQUIREMENT",
+    "SUPPORTED_PYTEST_GREMLINS_VERSION",
     "MutationCounts",
     "MutationEnvironment",
     "MutationEnvironmentUnavailable",
     "MutationExecution",
     "MutationExecutionError",
     "MutationParseError",
-    "MutmutAdapter",
-    "MutmutConfig",
-    "build_mutmut_commands",
+    "PytestGremlinsAdapter",
+    "PytestGremlinsConfig",
+    "build_pytest_gremlins_commands",
     "calculate_mutation_score",
-    "detect_mutmut_environment",
-    "parse_exported_stats",
-    "parse_mutation_result",
-    "parse_status_output",
+    "detect_pytest_gremlins_environment",
+    "parse_gremlins_report",
 ]

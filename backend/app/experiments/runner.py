@@ -117,7 +117,14 @@ class ExperimentRunner:
         return slots
 
     def run(self, config: ExperimentConfig) -> ExperimentOutcome:
-        layout = ExperimentDataLayout.create(self.settings.state_dir, config.experiment_id)
+        layout = ExperimentDataLayout.create(
+            self.settings.state_dir,
+            config.experiment_id,
+            raw_location=config.outputs.raw if config.outputs is not None else "raw/",
+            derived_location=(
+                config.outputs.derived if config.outputs is not None else "derived/"
+            ),
+        )
         outcomes: list[SlotOutcome] = []
         for slot in self.plan(config):
             existing = self._existing_outcome(slot, layout)
@@ -333,14 +340,9 @@ def stable_run_id(
     """Derive the run identity from every frozen, outcome-relevant input."""
 
     identity = {
-        "experiment_id": config.experiment_id,
-        "benchmark_version": config.benchmark_version,
+        "experiment": config.model_dump(mode="json"),
         "task": task.task.model_dump(mode="json"),
         "condition": condition.model_dump(mode="json"),
-        "model": config.model.model_dump(mode="json"),
-        "budgets": config.budgets.model_dump(mode="json"),
-        "max_repairs": config.max_repairs,
-        "verification_profile": config.verification_profile,
     }
     canonical = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return f"run-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:40]}"
@@ -418,6 +420,12 @@ def _store_experiment_identity(
         "experiment_config_sha256": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
         "stable_run_id": slot.run_id,
         "condition": slot.condition,
+        "environment_id": (
+            config.environment.environment_id if config.environment is not None else None
+        ),
+        "environment_fingerprint_sha256": (
+            config.environment.fingerprint_sha256 if config.environment is not None else None
+        ),
     }
     run.model_parameters = parameters
 

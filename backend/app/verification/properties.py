@@ -1,8 +1,8 @@
-"""Evaluator-owned Hypothesis profiles and container result normalization.
+"""Evaluator-owned Hypothesis profiles and result normalization.
 
 This module never imports or executes benchmark repository code.  It validates
-the evaluator's property profile, describes the files and command that a Docker
-runner must use, and consumes a small structured sidecar after execution.
+the evaluator's property profile, describes the files and command that the
+restricted verifier must use, and consumes a small structured sidecar.
 """
 
 from __future__ import annotations
@@ -61,36 +61,36 @@ class LoadedPropertyProfile:
 
 @dataclass(frozen=True, slots=True)
 class EvaluatorFileMount:
-    """One evaluator file to mount read-only in the verification container."""
+    """One private evaluator file staged for verification."""
 
     source_path: Path
-    container_path: PurePosixPath
+    virtual_path: PurePosixPath
     read_only: bool = True
 
 
 @dataclass(frozen=True, slots=True)
-class GeneratedContainerFile:
-    """Evaluator runtime content staged by the Docker verifier, never the agent."""
+class GeneratedEvaluatorFile:
+    """Evaluator runtime content staged by the verifier, never the agent."""
 
-    container_path: PurePosixPath
+    virtual_path: PurePosixPath
     content: bytes
 
 
 @dataclass(frozen=True, slots=True)
 class PropertyExecutionPlan:
-    """Complete container-only plan for a bounded Hypothesis gate."""
+    """Complete evaluator-owned plan for a bounded Hypothesis gate."""
 
     profile_id: str
     argv: tuple[str, ...]
     environment: tuple[tuple[str, str], ...]
     evaluator_mounts: tuple[EvaluatorFileMount, ...]
-    generated_files: tuple[GeneratedContainerFile, ...]
+    generated_files: tuple[GeneratedEvaluatorFile, ...]
     result_path: PurePosixPath
     timeout_seconds: int
 
 
 class PropertyCounterexamplePayload(ResearchSchema):
-    """Private JSON protocol emitted by the in-container evaluator plugin."""
+    """Private JSON protocol emitted by the evaluator plugin."""
 
     input: JsonValue
     expected: JsonValue | None = None
@@ -188,10 +188,10 @@ def load_property_profile(
 
 
 def build_property_execution_plan(loaded: LoadedPropertyProfile) -> PropertyExecutionPlan:
-    """Build a Docker-runner plan with deterministic, database-free Hypothesis settings."""
+    """Build a deterministic, database-free Hypothesis execution plan."""
 
     profile = loaded.profile
-    container_test = PurePosixPath(
+    evaluator_test = PurePosixPath(
         "/evaluator/property-tests", profile.profile_id, loaded.test_path.name
     )
     runtime_path = PurePosixPath("/evaluator/runtime")
@@ -217,16 +217,16 @@ def build_property_execution_plan(loaded: LoadedPropertyProfile) -> PropertyExec
             "--tb=short",
             "--disable-warnings",
             "--junitxml=/output/property-tests.xml",
-            str(container_test),
+            str(evaluator_test),
         ),
         environment=environment,
-        evaluator_mounts=(EvaluatorFileMount(loaded.test_path, container_test),),
+        evaluator_mounts=(EvaluatorFileMount(loaded.test_path, evaluator_test),),
         generated_files=(
-            GeneratedContainerFile(
+            GeneratedEvaluatorFile(
                 runtime_path / "agentrace_property_runtime.py",
                 _runtime_module().encode("utf-8"),
             ),
-            GeneratedContainerFile(
+            GeneratedEvaluatorFile(
                 runtime_path / "agentrace_property_plugin.py",
                 _plugin_module(profile).encode("utf-8"),
             ),
@@ -243,7 +243,7 @@ def normalize_property_result(
     timed_out: bool,
     sidecar: bytes | None,
 ) -> PropertyEvaluation:
-    """Normalize a container result without retaining raw hidden-test output."""
+    """Normalize a property result without retaining raw hidden-test output."""
 
     if duration_ms < 0:
         raise ValueError("duration_ms cannot be negative")

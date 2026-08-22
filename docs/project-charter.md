@@ -31,12 +31,16 @@ The bounded repair loop consists of an initial patch, deterministic verification
 
 The initial version supports only:
 
-- small Python repositories whose configured checks can run locally in a practical bounded time;
+- small, trusted, controlled, pre-qualified Python benchmark repositories whose configured checks can run locally in a practical bounded time;
 - bug-fix tasks and small, behavior-preserving refactors;
 - repositories supplied as local directories and/or Git URLs;
 - proposed changes represented as unified diffs;
-- patching and execution in an isolated working copy rather than the source repository; and
-- local execution of the system and its experiments.
+- patching and execution in a disposable Git workspace rather than the source repository; and
+- native Windows execution of the system and its experiments through controlled subprocesses, using an isolated Python virtual environment where required, hard timeouts, and a sanitized process environment.
+
+Native Windows subprocess isolation is weaker than VM/container isolation.
+AgentTrace therefore does not execute arbitrary untrusted third-party
+repositories and makes no production-grade sandbox claim.
 
 Each evaluation task must identify a fixed repository revision, a task statement, a prepared initial context, allowed inspection tools for Configurations B and C, deterministic verification commands, and the expected behavioral checks. Before admission to the experiment, the pinned baseline must complete successfully under the verification harness: every designated regression check must pass, and every task-specific check must exhibit its predeclared baseline outcome. The same admitted task definition and repository revision must be used across configurations.
 
@@ -130,7 +134,7 @@ No hypothesis is considered supported merely because one example improves. The e
 - Prepare one deterministic, recorded initial context shared by all three configurations.
 - Provide Configurations B and C the same allowlisted, read-only repository inspection tools.
 - Generate, validate, and apply unified-diff patches to disposable working copies without modifying the source repository.
-- Run configured tests, linting, optional type checking, and basic static analysis through a deterministic, isolated verification pipeline with bounded resources and network access disabled during repository-code execution.
+- Run configured tests, linting, optional type checking, and basic static analysis through a deterministic Windows-native verification pipeline with explicit working directories, hard timeouts, bounded output, isolated Python virtual environments where required, and sanitized process environments.
 - Enforce one patch request in A and B, and one initial plus at most one repair request in C, using the frozen repair trigger and full-replacement diff semantics.
 - Capture structured traces for prompts, model responses, tool calls, patch attempts, verification results, token usage, estimated cost when available, latency, and terminal status.
 - Run the same controlled task set under A, B, and C, enforce the declared terminal-outcome and infrastructure-failure rules, and export machine-readable results.
@@ -161,7 +165,7 @@ The initial version makes no commitment to:
 - model fine-tuning or training;
 - full SWE-bench support or claims based on the full benchmark;
 - support for languages other than Python;
-- automatic execution of untrusted repository code directly on the host;
+- execution of arbitrary untrusted third-party repository code;
 - more than one verification-assisted repair attempt;
 - autonomous acceptance of a patch without human review; or
 - production-grade security guarantees or claims.

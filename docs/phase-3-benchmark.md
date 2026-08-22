@@ -22,8 +22,8 @@ benchmark.
 For one manifest, the service loads and validates every corpus reference,
 clones the fixed commit into a disposable workspace, runs visible and hidden
 baseline tests, requires the declared bug to reproduce, applies and verifies
-the known-correct patch, resets the clone, and then invokes `mutmut` once on the
-corrected green test suite. Mutation testing is benchmark qualification only;
+the known-correct patch, resets the clone, and then invokes `pytest-gremlins`
+once on the corrected green test suite. Mutation testing is benchmark qualification only;
 it is not part of per-patch agent verification.
 
 Mutation evidence records the pinned tool version, exact argv, generated
@@ -40,9 +40,11 @@ upserted into SQLite only after the test gates and cleanup complete.
 
 ## Execution boundary
 
-`mutmut==3.7.0` requires operating-system fork support, so mutation
-qualification must run in Linux Docker or WSL. On an unsupported host, the
-service still verifies the deterministic pre/post-patch gates and persists an
-explicit `mutation_unavailable` result; it does not fabricate a score. The
-curator-only local runner executes only trusted manifest commands. Arbitrary
-agent patches remain deferred to the later network-denied Docker verifier.
+Mutation qualification runs natively on Windows through the
+pytest-gremlins adapter. The adapter preserves the normalized AgentTrace
+statistics and records unavailable, excluded, skipped, or problematic
+gremlins explicitly rather than presenting them as survivors. Qualification
+and later patch verification execute only evaluator-controlled commands from
+trusted, pre-qualified benchmark repositories in disposable Git workspaces,
+using sanitized environments and hard subprocess timeouts. AgentTrace does not
+execute arbitrary untrusted third-party repositories.

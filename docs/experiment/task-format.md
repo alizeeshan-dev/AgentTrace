@@ -38,7 +38,7 @@ This static JSON Schema fixes a research data contract without choosing Pydantic
 
 The manifest is evaluator-owned. The agent receives the title, description, common prepared context, and the applicable write policy, but never the hidden command or hidden test artifacts. `forbidden_paths` governs patch writes; hidden artifacts must additionally live outside approved inspection roots or on a read denylist enforced by repository tools.
 
-Command fields are trusted curator data, not model-generated shell. Their presence in the schema does not authorize arbitrary execution: a later verification layer must enforce the project security policy, isolation, resource bounds, and network denial and must never interpolate model output into a command. This phase does not choose a command runner.
+Command fields are trusted curator data, not model-generated shell. Their presence in the schema does not authorize arbitrary execution: the verification layer must limit execution to trusted, pre-qualified benchmark repositories; use a disposable workspace, explicit working directory, sanitized environment, bounded output, and hard timeout; and never interpolate model output into a command.
 
 At admission, the hidden command is run repeatedly on the clean baseline. Stable baseline-failing task checks become FAIL_TO_PASS; stable baseline-passing checks become PASS_TO_PASS. The same inventory is used for every configuration. A final exit code alone is not enough—the evaluator must preserve per-test identities and statuses in a structured or machine-readable test report.
 

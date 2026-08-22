@@ -30,12 +30,6 @@ class Settings(BaseSettings):
     workspace_root: Path | None = None
     artifact_root: Path | None = None
     verification_root: Path | None = None
-    verification_image: str = "agentrace-verifier:phase6"
-    docker_executable: str = "docker"
-    verification_cpus: float = Field(default=1.0, ge=0.1, le=8.0)
-    verification_memory_mb: int = Field(default=512, ge=64, le=8192)
-    verification_pids: int = Field(default=128, ge=16, le=4096)
-    verification_tmpfs_mb: int = Field(default=64, ge=8, le=1024)
     max_file_size_bytes: int = Field(default=1_048_576, ge=1, le=16_777_216)
     max_artifact_size_bytes: int = Field(default=16_777_216, ge=1, le=268_435_456)
 

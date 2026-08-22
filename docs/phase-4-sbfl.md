@@ -19,9 +19,11 @@ stored raw JSON contains no hidden source, path, test name, assertion, or test
 output.
 
 This Phase 4 runner is limited to evaluator-authored benchmark commands in an
-independent disposable clone. It is not the later untrusted-patch verifier.
-Phase 6 must place arbitrary repository execution behind the specified
-network-denied, resource-bounded Docker boundary.
+independent disposable clone. Phase 6 applies the same trusted-benchmark scope
+to candidate verification: repository commands run through the restricted
+Windows subprocess runner with an explicit workspace, sanitized environment,
+bounded output, and hard timeout. Native subprocess isolation is not a sandbox
+for arbitrary untrusted repositories.
 
 ## Spectrum and ranking
 

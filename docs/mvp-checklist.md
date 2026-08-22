@@ -10,7 +10,7 @@ This checklist tracks the minimum system defined by the [project charter](projec
 - [ ] Give Configurations B and C identical allowlisted, read-only inspection tools and limits.
 - [ ] Generate and validate unified-diff patches.
 - [ ] Apply patches only to disposable working copies.
-- [ ] Run bounded, isolated deterministic verification with network-disabled repository-code execution.
+- [ ] Run deterministic verification for trusted, pre-qualified benchmark repositories in disposable Git workspaces through the restricted Windows subprocess runner, with isolated virtual environments where required, hard timeouts, bounded output, and sanitized process environments.
 - [ ] Enforce one patch request for A and B; refusals, missing diffs, and invalid responses are terminal unresolved outcomes.
 - [ ] Treat invalid, unappliable, policy-rejected, or check-failing initial patches as fixed repair triggers for C; exclude only evidenced infrastructure failures.
 - [ ] Enforce one initial patch plus at most one verification-assisted repair for C, with no tools after feedback and a full replacement diff against a clean baseline.

@@ -1,31 +1,54 @@
-# Deterministic verification boundary
+# Deterministic Windows verification boundary
 
-Phase 6 runs benchmark repository code only inside a disposable Docker
-container. The verifier pins the inspected image ID, mounts a fresh checkout
-read-only, mounts only the current task's evaluator material, disables the
-network, runs as a numeric non-root user, drops capabilities, enables
-`no-new-privileges`, uses a read-only root filesystem, and bounds CPU, memory,
-processes, output, and wall time. The Docker socket and host environment are
-never mounted.
+AgentTrace executes repository code natively on Windows and only for trusted,
+controlled, pre-qualified benchmark repositories. Native subprocess isolation is
+weaker than VM/container isolation; the verifier is not a sandbox for arbitrary
+untrusted third-party code.
 
-The required candidate gates are applied patch, Python compilation, visible
-tests, complete repository tests, hidden tests, and an explicitly configured
-Hypothesis property profile. They run fail-fast. Ruff, mypy, Bandit, and an
-explicit CrossHair/Z3 profile are advisory. Baseline gates are retained
-separately so a previously passing test that fails after the patch is recorded
-as a regression. Hidden and property source remains evaluator-only; normalized
-property artifacts contain only bounded, shrunk counterexample evidence.
+For each baseline or candidate verification, AgentTrace creates a disposable
+Git workspace at the task's recorded base commit. The original benchmark
+repository is never executed or modified. Verification uses a dedicated
+temporary Python virtual environment where required and invokes only
+evaluator-configured commands through the restricted subprocess runner.
 
-These restrictions materially reduce risk, but container isolation is not a
-formal security guarantee. The Docker daemon, kernel, verifier image, evaluator
-files, and AgentTrace host process remain trusted computing-base components.
+The runner supplies explicit argument arrays and an explicit workspace working
+directory, enforces hard timeouts, terminates timed-out process trees, bounds
+captured output, and passes a sanitized allowlisted environment. Provider API
+keys, authorization values, `.env` contents, unrelated host secrets, and the
+parent process environment are not forwarded to benchmark processes. Hidden
+tests remain evaluator-owned and outside agent-readable repository paths.
 
-Build the Linux-compatible image with:
+The required candidate gates run in fail-fast order:
 
-```text
-docker build -f docker/verification/Dockerfile -t agentrace-verifier:phase6 docker/verification
+1. patch application;
+2. Python syntax/compilation;
+3. targeted visible tests;
+4. complete repository/baseline tests;
+5. hidden tests;
+6. an explicitly configured Hypothesis property profile.
+
+Ruff, mypy, Bandit, and explicitly configured CrossHair/Z3 profiles are
+advisory unless the frozen verification profile says otherwise. Baseline gate
+results are retained separately so a previously passing check that fails after
+the patch is recorded as a regression. Hidden and property source remains
+evaluator-only; normalized property artifacts contain only bounded, sanitized,
+shrunk counterexample evidence.
+
+The frozen main experiment records a Windows environment manifest and stable
+environment fingerprint as its immutable verification-environment identity.
+The manifest captures the Windows and Python versions, verification-tool versions,
+dependency lock hash, AgentTrace source commit, benchmark version, and
+verification profile.
+
+After the migration has been validated and committed, materialize it once with:
+
+```powershell
+$env:PYTHONPATH = "backend"
+python -m app.experiments.environment_cli `
+  --benchmark-version benchmark-v1.0.0 `
+  --verification-profile deterministic-v1 `
+  --output experiments/freeze/windows-environment.json
 ```
 
-The service refuses to verify when Docker or the configured image is missing;
-it records an infrastructure failure instead of running repository code on the
-host.
+The command refuses a dirty source tree or an existing destination. The
+generated fingerprint is then copied into the frozen experiment configuration.

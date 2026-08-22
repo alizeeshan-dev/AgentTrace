@@ -11,7 +11,7 @@ This directory freezes the benchmark and measurement methodology before agent im
 - [Task selection](task-selection.md) defines benchmark admission and exclusion criteria.
 - [Pilot-task concepts](pilot-task-concepts.md) supplies candidates for later fixture construction; they are not admitted benchmark tasks.
 
-These documents refine the [Phase 0 project charter](../project-charter.md) without implementing the agent, verifier, database, API, container environment, or interface.
+These documents refine the [Phase 0 project charter](../project-charter.md) without implementing the agent, native verifier, database, API, or interface.
 
 ## Freeze and change control
 
