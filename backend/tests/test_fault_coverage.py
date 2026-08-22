@@ -13,6 +13,7 @@ def test_collects_per_test_lines_and_anonymizes_hidden_tests(tmp_path: Path) -> 
     package.mkdir(parents=True)
     visible_tests.mkdir()
     hidden_tests.mkdir()
+    (workspace / "pytest.ini").write_text("", encoding="utf-8")
     (package / "__init__.py").write_text("", encoding="utf-8")
     (package / "core.py").write_text(
         "def classify(value: int) -> str:\n"
