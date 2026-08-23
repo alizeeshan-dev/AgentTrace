@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -33,12 +33,14 @@ from app.db.models import (
     PatchArtifact,
     Repository,
     Run,
+    RunReportRecord,
     Task,
     TraceEvent,
     VerificationResult,
 )
 from app.experiments.models import ExperimentConfig, ExperimentConfigurationSpec
 from app.experiments.runner import ExperimentRunner, ExperimentSlot
+from app.reports import RunReport, RunReportError, RunReportMetadata, RunReportService
 from app.repositories import ExternalRepositoryError
 from app.services.repositories import RepositoryRegistrationConflict, RepositoryRegistry
 from app.tasks import ExternalTaskError, ExternalTaskService
@@ -258,6 +260,51 @@ def build_api_router(settings: Settings) -> APIRouter:
             "counterexamples": [_counterexample_payload(item) for item in counterexamples],
             "sbfl": _localization_payload(localization) if localization is not None else None,
         }
+
+    @router.post(
+        "/runs/{run_id}/report",
+        response_model=RunReportMetadata,
+        status_code=status.HTTP_201_CREATED,
+        tags=["reports"],
+    )
+    def generate_run_report(
+        run_id: str, session: SessionDependency, response: Response
+    ) -> RunReportMetadata:
+        service = RunReportService(session, settings=settings)
+        existed = session.scalar(
+            select(RunReportRecord).where(RunReportRecord.run_id == run_id)
+        ) is not None
+        try:
+            service.generate(run_id)
+            metadata = service.metadata(run_id)
+        except RunReportError as error:
+            raise _report_http_error(error) from error
+        if existed:
+            response.status_code = status.HTTP_200_OK
+        return metadata
+
+    @router.get(
+        "/runs/{run_id}/report",
+        response_model=RunReport,
+        tags=["reports"],
+    )
+    def get_run_report(run_id: str, session: SessionDependency) -> RunReport:
+        try:
+            return RunReportService(session, settings=settings).get(run_id)
+        except RunReportError as error:
+            raise _report_http_error(error) from error
+
+    @router.get("/runs/{run_id}/report/markdown", tags=["reports"])
+    def get_run_report_markdown(run_id: str, session: SessionDependency) -> Response:
+        try:
+            markdown = RunReportService(session, settings=settings).markdown(run_id)
+        except RunReportError as error:
+            raise _report_http_error(error) from error
+        return Response(
+            content=markdown,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f'inline; filename="{run_id}-report.md"'},
+        )
 
     @router.get("/experiments", tags=["experiments"])
     def list_experiments(session: SessionDependency) -> list[dict[str, Any]]:
@@ -521,6 +568,19 @@ def _create_external_run(
 
 def _timestamp(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
+
+
+def _report_http_error(error: RunReportError) -> HTTPException:
+    if error.code in {"run_not_found", "report_not_found"}:
+        code = status.HTTP_404_NOT_FOUND
+    elif error.code == "run_not_complete":
+        code = status.HTTP_409_CONFLICT
+    else:
+        code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    return HTTPException(
+        status_code=code,
+        detail={"code": error.code, "message": str(error)},
+    )
 
 
 def _task_payload(task: Task) -> dict[str, Any]:

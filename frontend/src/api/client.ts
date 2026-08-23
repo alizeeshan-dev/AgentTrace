@@ -46,4 +46,33 @@ export const api = {
   }),
   getExperiments: () => fetchApi<any[]>("/experiments"),
   getHealth: () => fetchApi<{status: string}>("/health"),
+
+  // External repository workflow
+  registerExternalRepository: (payload: any) => fetchApi<any>("/repositories/external", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }),
+  getRepositories: () => fetchApi<any[]>("/repositories"),
+  setRepositoryTrust: (id: string, payload: any) => fetchApi<any>(`/repositories/${id}/trust`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  }),
+  createExternalTask: (payload: any) => fetchApi<any>("/tasks/external", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }),
+
+  // Report generation
+  generateRunReport: (runId: string) => fetchApi<any>(`/runs/${runId}/report`, {
+    method: "POST"
+  }),
+  getRunReport: (runId: string) => fetchApi<any>(`/runs/${runId}/report`),
+  getRunReportMarkdown: async (runId: string) => {
+    const url = `${API_BASE}/runs/${runId}/report/markdown`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new ApiError(response.status, "Failed to fetch markdown report.");
+    }
+    return response.text();
+  },
 };

@@ -240,3 +240,22 @@ class TraceEvent(Base):
     input_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     output_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_type: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+
+class RunReportRecord(Base):
+    """Idempotent materialization of one deterministic completed-run report."""
+
+    __tablename__ = "run_reports"
+    __table_args__ = (UniqueConstraint("run_id"),)
+
+    report_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("runs.run_id", ondelete="CASCADE"), index=True
+    )
+    generation_version: Mapped[str] = mapped_column(String(50))
+    generated_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    evidence_sha256: Mapped[str] = mapped_column(String(64))
+    structured_report: Mapped[dict[str, Any]] = mapped_column(JSON)
+    markdown_artifact: Mapped[str] = mapped_column(String(500))
+    markdown_sha256: Mapped[str] = mapped_column(String(64))
+    source_artifacts: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)

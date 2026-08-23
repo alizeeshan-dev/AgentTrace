@@ -1001,6 +1001,29 @@ The Python orchestrator remains the enforcement point; OPA returns the decision.
 
 AgentTrace should record observable behavior, not claim access to private model reasoning.
 
+### Evidence-based run analysis reports
+
+For any completed benchmark or explicitly trusted external-repository run,
+AgentTrace may deterministically derive a `RunReport` from the stored task,
+repository, run, trace, fault-localization, patch, verification,
+counterexample, and benchmark-quality records. The report requires no
+additional model call and persists both typed JSON and content-addressed
+Markdown with a versioned evidence snapshot hash.
+
+The report is a reconstruction and assessment of one observed AgentTrace run,
+not a generic AI code review, repository health audit, or numerical quality
+score. Its assessment dimensions separately state final resolution, configured
+verification outcome, mutation-test oracle strength where available,
+regression evidence, transparent patch scope, fault-localization evidence,
+repair outcome, and advisory static-analysis evidence. Each dimension records
+its evidence basis. Missing evidence is labelled explicitly rather than
+inferred.
+
+Benchmark reports may use mutation qualification, hidden tests, difficulty,
+and evaluator-owned profiles. External reports must disclose unavailable
+benchmark ground truth, hidden tests, mutation qualification, properties, or
+symbolic evidence and must not imply equivalent oracle strength.
+
 A run trace may contain:
 
 ```text

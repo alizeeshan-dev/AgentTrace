@@ -21,11 +21,11 @@ export function EmptyState({
   isError = false,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center p-12 text-center border rounded-xl border-dashed bg-background/50">
-      <div className={cn("flex h-20 w-20 items-center justify-center rounded-full bg-muted", isError && "bg-destructive/10 text-destructive")}>
-        <Icon className={cn("h-10 w-10 text-muted-foreground", isError && "text-destructive")} />
+    <div className="research-panel flex flex-col items-center justify-center border-dashed p-12 text-center">
+      <div className={cn("flex h-14 w-14 items-center justify-center rounded-2xl bg-muted", isError && "bg-destructive/10 text-destructive")}>
+        <Icon className={cn("h-6 w-6 text-muted-foreground", isError && "text-destructive")} />
       </div>
-      <h3 className="mt-6 text-xl font-semibold tracking-tight">{title}</h3>
+      <h3 className="mt-5 text-lg font-bold tracking-tight text-[var(--sage-ink)]">{title}</h3>
       <p className="mt-2 text-sm text-muted-foreground max-w-[400px]">
         {description}
       </p>

@@ -44,6 +44,7 @@ tasks and adds the integration, reproducibility, and security checks summarized 
 - separate P0/P1 artifacts, clean-base P1 application, and complete re-verification.
 - a common A/B/C/D configuration contract with task-aware SBFL, Hypothesis, and CrossHair flags;
 - canonical redacted trace assembly and deterministic database-independent JSON export;
+- deterministic evidence-based JSON and Markdown reports for completed runs;
 - stable experiment run IDs, post-hoc A/B verification, resumability, and failure classification.
 
 The portable Phase 1 benchmark manifest remains defined by
