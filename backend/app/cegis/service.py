@@ -26,13 +26,13 @@ from app.agent.provider import ModelMessage, ModelProvider, ModelProviderError, 
 from app.agent.service import AgentRunService
 from app.agent.tools import ConstrainedRepositoryTools, ToolInputError
 from app.artifacts import ArtifactReference, ArtifactStore
-from app.benchmark.loader import LoadedBenchmarkTask, load_benchmark_task
 from app.config import Settings
 from app.db.models import PatchArtifact, Run, TraceEvent
 from app.repositories.path_policy import PathPolicyError
 from app.repositories.workspace import WorkspaceManager
 from app.schemas.research import Counterexample
 from app.services.workspaces import LoadedTaskWorkspace, TaskWorkspaceLoader
+from app.tasks import LoadedTaskDefinition, load_task_definition
 from app.verification.service import VerificationRun, VerificationService
 
 from .counterexamples import CounterexampleExtractor
@@ -129,7 +129,7 @@ class ConfigurationCService:
         self._sequence = 0
         started_clock = monotonic()
         limits = budgets or AgentBudgets()
-        loaded = load_benchmark_task(manifest_path, benchmark_root=benchmark_root)
+        loaded = load_task_definition(manifest_path, benchmark_root=benchmark_root)
         initial = AgentRunService(
             self.session, settings=self.settings, provider=self.provider
         ).run_tool_agent(
@@ -427,7 +427,7 @@ class ConfigurationCService:
             started_at=started_clock,
         )
 
-    def _repair_workspace(self, run_id: str, loaded: LoadedBenchmarkTask) -> LoadedTaskWorkspace:
+    def _repair_workspace(self, run_id: str, loaded: LoadedTaskDefinition) -> LoadedTaskWorkspace:
         workspace_id = f"repair-{hashlib.sha256(run_id.encode()).hexdigest()[:24]}"
         return TaskWorkspaceLoader(
             self.session,
@@ -607,7 +607,7 @@ class ConfigurationCService:
 
 
 def _repair_messages(
-    loaded: LoadedBenchmarkTask,
+    loaded: LoadedTaskDefinition,
     patch: PatchArtifact,
     counterexample: Counterexample,
 ) -> list[ModelMessage]:

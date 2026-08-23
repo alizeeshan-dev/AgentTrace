@@ -1,7 +1,7 @@
-"""Restricted native Windows execution for trusted benchmark repositories.
+"""Restricted native Windows execution for trusted repositories.
 
 This boundary deliberately does not claim to sandbox arbitrary code.  It runs
-only trusted, pre-qualified benchmark repositories in managed disposable Git
+only trusted benchmark repositories or explicitly trusted external repositories in managed Git
 workspaces, using a per-verification virtual environment, a sanitized process
 environment, fixed working directories, bounded output, and hard timeouts.
 """
@@ -138,7 +138,7 @@ class WindowsVerificationRunner:
 
         ``system_site_packages`` intentionally exposes only the packages in the
         frozen AgentTrace Python environment; pip is not bootstrapped and user
-        site packages remain disabled for benchmark subprocesses.
+        site packages remain disabled for repository subprocesses.
         """
 
         destination = Path(root)

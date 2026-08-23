@@ -381,7 +381,8 @@ The core project supports:
 
 - small Python repositories;
 - bug-fixing tasks;
-- local repository paths and optionally public Git URLs;
+- curated local benchmark repositories and public HTTPS Git URLs pinned to an exact commit;
+- an explicit user trust confirmation before any externally registered repository code executes;
 - a constrained LLM agent;
 - safe repository inspection;
 - unified-diff patch generation;
@@ -949,12 +950,21 @@ The taxonomy may be refined after the pilot, but it must be frozen before the ma
 
 ## 15. Security and Isolation Model
 
-AgentTrace evaluates generated code natively on Windows. Its execution boundary is
-therefore restricted to **trusted, controlled, pre-qualified benchmark
-repositories**; it is not a service for executing arbitrary untrusted
-third-party repositories. Native Windows subprocess isolation is weaker than
-VM/container isolation, so this trust restriction is part of the research
-contract rather than an implementation detail.
+AgentTrace evaluates generated code natively on Windows. Curated benchmark
+repositories are pre-qualified. A public HTTPS Git repository may also be
+registered metadata-first, pinned to its resolved full commit, and used only
+after the user explicitly confirms that they trust that repository for local
+execution. Registration alone does not check out or execute project code.
+AgentTrace is not a service for executing arbitrary untrusted third-party
+repositories. Native Windows subprocess isolation is weaker than VM/container
+isolation, so this trust restriction is part of the research contract rather
+than an implementation detail.
+
+External repair tasks are intentionally distinct from benchmark tasks. Unless
+separately curated, they have no AgentTrace hidden tests, known-correct patch,
+mutation score, ground-truth difficulty, Hypothesis profile, CrossHair profile,
+or persisted SBFL spectrum. Missing evidence is recorded as unavailable and is
+never synthesized. Configuration D degrades to its applicable shared features.
 
 ### Required controls
 
@@ -1735,7 +1745,7 @@ AgentTrace is research-ready when:
 - benchmark tasks have test-oracle quality metadata from mutation testing;
 - Configurations A–D are precisely reproducible;
 - the agent has no unrestricted shell tool;
-- repository code runs only from disposable workspaces through the restricted Windows verifier, and only for trusted, pre-qualified benchmark repositories;
+- repository code runs only from disposable workspaces through the restricted Windows verifier, for curated benchmark repositories or explicitly trusted external repositories;
 - SBFL/Ochiai localization is reproducible;
 - Hypothesis produces concrete counterexamples on eligible tasks;
 - the CEGIS-style configuration allows no more than one repair;

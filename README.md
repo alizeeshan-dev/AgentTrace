@@ -17,7 +17,7 @@ tasks and adds the integration, reproducibility, and security checks summarized 
 
 - FastAPI application factory with a health endpoint and structured JSON logs;
 - strict Pydantic research schemas and SQLAlchemy/SQLite persistence;
-- immutable local Git snapshot registration;
+- immutable local Git snapshot registration and metadata-first public HTTPS Git registration;
 - independent disposable clones at recorded commits;
 - canonical, bounded repository reads with traversal, link, hidden-evaluator,
   and `.git` protections;
@@ -34,8 +34,8 @@ tasks and adds the integration, reproducibility, and security checks summarized 
 - a built-in Gemini Developer API adapter using required structured function calls;
 - deterministic direct-patch context and a bounded, shell-free tool agent;
 - unified-diff policy validation and orchestrator-only disposable application.
-- baseline-aware, fail-fast verification for trusted, pre-qualified benchmark
-  repositories in disposable Git workspaces through a restricted Windows
+- baseline-aware, fail-fast verification for curated benchmarks and explicitly
+  trusted external repositories in disposable Git workspaces through a restricted Windows
   subprocess runner, with isolated virtual environments where required,
   sanitized environments, bounded output, and hard timeouts;
 - evaluator-private deterministic Hypothesis properties with shrunk evidence;
@@ -86,10 +86,12 @@ python -m app.benchmark.cli benchmark/tasks/boundary-empty-input.yaml `
 The qualification pipeline uses pytest-gremlins only during benchmark
 qualification; it does not mutation-test every LLM patch. Candidate
 verification is a separate Phase 6 service using the restricted native Windows
-runner. AgentTrace executes only trusted, controlled, pre-qualified benchmark
-repositories and does not claim that native subprocess restrictions safely
-sandbox arbitrary untrusted code. See `docs/verification.md` for the execution
-boundary and frozen Windows environment-fingerprint contract.
+runner. External public repositories can be registered metadata-first and remain
+non-executable until explicit user trust is recorded. AgentTrace does not claim
+that native subprocess restrictions safely sandbox arbitrary untrusted code.
+See `docs/verification.md` for the execution boundary,
+`docs/external-repositories.md` for the external workflow, and the frozen Windows
+environment-fingerprint contract.
 
 Qualified tasks can be localized before any model call:
 

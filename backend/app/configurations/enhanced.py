@@ -20,12 +20,12 @@ from sqlalchemy.orm import Session
 
 from app.agent.budgets import AgentBudgets
 from app.agent.provider import ModelMessage, ModelProvider, ModelRequest, ModelResponse
-from app.benchmark.loader import LoadedBenchmarkTask, load_benchmark_task
 from app.cegis.counterexamples import CounterexampleExtractor
 from app.cegis.service import ConfigurationCResult, ConfigurationCService, VerificationOracle
 from app.config import Settings
 from app.db.models import FaultLocalizationResult, Run
 from app.fault_localization import localization_run_id as deterministic_localization_run_id
+from app.tasks import LoadedTaskDefinition, load_task_definition
 from app.verification.service import VerificationFeatures, VerificationService
 
 from .service import ConfigurationExecution
@@ -277,25 +277,27 @@ class ConfigurationDService:
 
         if isinstance(sbfl_top_k, bool) or not 1 <= sbfl_top_k <= _MAX_SBFL_TOP_K:
             raise ValueError(f"sbfl_top_k must be between 1 and {_MAX_SBFL_TOP_K}")
-        loaded = load_benchmark_task(manifest_path, benchmark_root=benchmark_root)
+        loaded = load_task_definition(manifest_path, benchmark_root=benchmark_root)
         requested = EffectiveTechniques(
             sbfl=techniques.enable_sbfl,
             hypothesis=techniques.enable_hypothesis,
             crosshair=techniques.enable_crosshair,
         )
+        evidence: FaultLocalizationEvidence | None = None
+        if requested.sbfl:
+            try:
+                evidence = self._load_fault_localization(
+                    loaded,
+                    localization_run_id=localization_run_id,
+                    top_k=sbfl_top_k,
+                )
+            except ConfigurationDError:
+                if loaded.task.task_source != "external":
+                    raise
         effective = EffectiveTechniques(
-            sbfl=requested.sbfl,
+            sbfl=requested.sbfl and evidence is not None,
             hypothesis=requested.hypothesis and loaded.task.property_profile is not None,
             crosshair=requested.crosshair and loaded.task.symbolic_profile is not None,
-        )
-        evidence = (
-            self._load_fault_localization(
-                loaded,
-                localization_run_id=localization_run_id,
-                top_k=sbfl_top_k,
-            )
-            if effective.sbfl
-            else None
         )
         enhanced_provider = EvidenceAugmentingProvider(
             self.provider,
@@ -347,6 +349,23 @@ class ConfigurationDService:
                     if evidence is not None
                     else None
                 ),
+                "unavailable_research_evidence": {
+                    "sbfl": (
+                        "No applicable persisted execution spectrum was available."
+                        if requested.sbfl and evidence is None
+                        else None
+                    ),
+                    "hypothesis": (
+                        "No property profile is configured for this task."
+                        if requested.hypothesis and not effective.hypothesis
+                        else None
+                    ),
+                    "crosshair": (
+                        "No symbolic profile is configured for this task."
+                        if requested.crosshair and not effective.crosshair
+                        else None
+                    ),
+                },
             }
         )
         run.model_parameters = parameters
@@ -362,7 +381,7 @@ class ConfigurationDService:
 
     def _load_fault_localization(
         self,
-        loaded: LoadedBenchmarkTask,
+        loaded: LoadedTaskDefinition,
         *,
         localization_run_id: str | None,
         top_k: int,
@@ -449,7 +468,7 @@ class ConfigurationDExecutor:
 
 def _safe_localization_entries(
     raw: Sequence[dict[str, Any]],
-    loaded: LoadedBenchmarkTask,
+    loaded: LoadedTaskDefinition,
     *,
     top_k: int,
 ) -> tuple[dict[str, JsonValue], ...]:

@@ -11,11 +11,11 @@ from pydantic import JsonValue
 from app.agent.actions import SubmitPatchAction
 from app.agent.context import PreparedRepositoryContext
 from app.agent.provider import ModelMessage, ModelResponse
-from app.benchmark.loader import LoadedBenchmarkTask
+from app.tasks import LoadedTaskDefinition
 
 
 def direct_messages(
-    loaded: LoadedBenchmarkTask,
+    loaded: LoadedTaskDefinition,
     context: PreparedRepositoryContext,
 ) -> list[ModelMessage]:
     """Build Configuration A's fixed no-tool request without evaluator data."""
@@ -41,7 +41,7 @@ def direct_messages(
     ]
 
 
-def tool_agent_messages(loaded: LoadedBenchmarkTask) -> list[ModelMessage]:
+def tool_agent_messages(loaded: LoadedTaskDefinition) -> list[ModelMessage]:
     """Build Configuration B's metadata-only initial request."""
 
     return [
@@ -97,7 +97,7 @@ def model_event(response: ModelResponse) -> dict[str, Any]:
     }
 
 
-def _agent_task_payload(loaded: LoadedBenchmarkTask) -> dict[str, Any]:
+def _agent_task_payload(loaded: LoadedTaskDefinition) -> dict[str, Any]:
     task = loaded.task
     return {
         "allowed_paths": task.allowed_paths,
@@ -106,12 +106,13 @@ def _agent_task_payload(loaded: LoadedBenchmarkTask) -> dict[str, Any]:
         "forbidden_paths": task.forbidden_paths,
         "task_category": task.task_category,
         "task_id": task.task_id,
+        "task_source": task.task_source,
         "title": task.title,
         "visible_test_command": task.visible_test_command,
     }
 
 
-def _agent_repository_payload(loaded: LoadedBenchmarkTask) -> dict[str, JsonValue]:
+def _agent_repository_payload(loaded: LoadedTaskDefinition) -> dict[str, JsonValue]:
     return {
         "base_commit": loaded.task.base_commit,
         "repository_reference": loaded.task.repository,

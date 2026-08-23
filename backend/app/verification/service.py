@@ -1,4 +1,4 @@
-"""Deterministic verification orchestration for trusted benchmark repositories.
+"""Deterministic verification for explicitly trusted Python repositories.
 
 Repository Python runs in managed disposable Git workspaces through the native
 Windows verification boundary.  Each attempt receives a temporary Python
@@ -23,11 +23,11 @@ from sqlalchemy.orm import Session
 from app.agent.budgets import AgentBudgets
 from app.agent.patches import PatchValidationError, PatchValidator, apply_validated_patch
 from app.artifacts import ArtifactStore
-from app.benchmark.loader import LoadedBenchmarkTask, load_benchmark_task
 from app.config import Settings
 from app.db.models import PatchArtifact, Repository, Run, Task, VerificationResult
 from app.repositories.workspace import DisposableWorkspace, WorkspaceManager
 from app.services.workspaces import LoadedTaskWorkspace, TaskWorkspaceLoader
+from app.tasks import LoadedTaskDefinition, load_task_definition
 
 from .gates import GateOutcome, GateSpec, StandardGateFactory, StandardGateRunner
 from .junit import TestInventory, compare_inventories, read_junit
@@ -142,11 +142,40 @@ class VerificationService:
             is not None
         ):
             raise VerificationServiceError("verification attempt is immutable and already exists")
-        loaded = load_benchmark_task(manifest_path, benchmark_root=benchmark_root)
+        loaded = load_task_definition(manifest_path, benchmark_root=benchmark_root)
         task = self.session.get(Task, run.task_id)
         if task is None or task.task_id != loaded.task.task_id:
             raise VerificationServiceError("persisted run and benchmark manifest do not match")
         self._require_manifest_binding(task, loaded)
+        if task.task_source == "external" and not task.verification_configured:
+            gate = self._store_gate(
+                run_id,
+                attempt_number,
+                NormalizedGate(
+                    "verification_configuration",
+                    False,
+                    "not_configured",
+                    None,
+                    0,
+                    "No trusted pytest verification command is configured for this external task.",
+                ),
+            )
+            parameters = dict(run.model_parameters)
+            parameters["verification"] = {
+                "runner": "native_windows",
+                "protocol_version": "native-windows-v1",
+                "task_source": "external",
+                "verification_configured": False,
+                "hidden_tests_available": False,
+                "hypothesis_enabled": False,
+                "symbolic_enabled": False,
+            }
+            run.model_parameters = parameters
+            run.status = "verification_not_configured"
+            run.final_resolution = None
+            run.failure_category = None
+            self.session.flush()
+            return VerificationRun(run_id, attempt_number, None, False, None, (gate,))
 
         baseline = self._load_workspace(task.task_id, f"{run_id}-vbase")
         candidate = self._load_workspace(task.task_id, f"{run_id}-vcand")
@@ -170,8 +199,11 @@ class VerificationService:
                     "sanitized_environment": True,
                     "shell": False,
                     "hard_timeouts": True,
-                    "trusted_benchmarks_only": True,
+                    "trusted_repositories_only": True,
                 },
+                "task_source": task.task_source,
+                "verification_configured": task.verification_configured,
+                "hidden_tests_available": loaded.hidden_tests_path is not None,
                 "property_profile": loaded.task.property_profile,
                 "hypothesis_enabled": self.features.enable_hypothesis,
                 "protocol_version": "native-windows-v1",
@@ -285,7 +317,7 @@ class VerificationService:
             max_file_bytes=self.settings.max_file_size_bytes,
         ).load(task_id=task_id, run_id=workspace_id, hidden_paths=_HIDDEN_PATHS)
 
-    def _require_manifest_binding(self, task: Task, loaded: LoadedBenchmarkTask) -> None:
+    def _require_manifest_binding(self, task: Task, loaded: LoadedTaskDefinition) -> None:
         repository = self.session.get(Repository, task.repository_id)
         if repository is None or loaded.repository_path is None:
             raise VerificationServiceError("verification requires a persisted local repository")
@@ -295,10 +327,17 @@ class VerificationService:
             raise VerificationServiceError("persisted repository source is unavailable") from error
         if source != loaded.repository_path or repository.base_commit != loaded.task.base_commit:
             raise VerificationServiceError("persisted repository binding differs from the manifest")
+        if (
+            repository.source_type == "external_git"
+            and not repository.trusted_for_local_execution
+        ):
+            raise VerificationServiceError(
+                "External repository execution is blocked until explicit trust is granted"
+            )
         expected = {
             "allowed_paths": loaded.task.allowed_paths,
             "forbidden_paths": loaded.task.forbidden_paths,
-            "hidden_test_command": loaded.task.hidden_test_command,
+            "hidden_test_command": loaded.task.hidden_test_command or "",
             "property_profile": loaded.task.property_profile,
             "symbolic_profile": loaded.task.symbolic_profile,
             "visible_test_command": loaded.task.visible_test_command,
@@ -306,10 +345,15 @@ class VerificationService:
         if any(getattr(task, field) != value for field, value in expected.items()):
             raise VerificationServiceError("persisted task contract differs from the manifest")
 
-    def _stage_evaluator(self, loaded: LoadedBenchmarkTask, stage: Path) -> Path:
+    def _stage_evaluator(
+        self, loaded: LoadedTaskDefinition, stage: Path
+    ) -> Path | None:
+        if loaded.hidden_tests_path is None and loaded.task.property_profile is None:
+            return None
         evaluator = stage / "evaluator"
-        hidden = evaluator / "hidden_tests"
-        self._copy_evaluator_tree(loaded.hidden_tests_path, hidden)
+        if loaded.hidden_tests_path is not None:
+            hidden = evaluator / "hidden_tests"
+            self._copy_evaluator_tree(loaded.hidden_tests_path, hidden)
         if self.features.enable_hypothesis and loaded.task.property_profile is not None:
             profile = load_property_profile(
                 loaded.benchmark_root,
@@ -361,25 +405,30 @@ class VerificationService:
                     raise VerificationServiceError("evaluator files exceed their size bound")
                 shutil.copyfile(candidate, target_root / name)
 
-    def _standard_specs(self, loaded: LoadedBenchmarkTask) -> tuple[GateSpec, ...]:
+    def _standard_specs(self, loaded: LoadedTaskDefinition) -> tuple[GateSpec, ...]:
         timeout = loaded.task.timeout_seconds
-        return (
+        specs: list[GateSpec] = [
             StandardGateFactory.compile(timeout_seconds=min(timeout, 60)),
             StandardGateFactory.visible_tests(
-                loaded.task.visible_test_command, timeout_seconds=timeout
+                loaded.task.visible_test_command or "", timeout_seconds=timeout
             ),
-            StandardGateFactory.existing_tests("pytest -q", timeout_seconds=timeout),
-            StandardGateFactory.hidden_tests(
-                loaded.task.hidden_test_command, timeout_seconds=timeout
-            ),
-        )
+        ]
+        if loaded.task.task_source == "benchmark":
+            specs.append(StandardGateFactory.existing_tests("pytest -q", timeout_seconds=timeout))
+        if loaded.hidden_tests_path is not None and loaded.task.hidden_test_command is not None:
+            specs.append(
+                StandardGateFactory.hidden_tests(
+                    loaded.task.hidden_test_command, timeout_seconds=timeout
+                )
+            )
+        return tuple(specs)
 
     def _run_baseline(
         self,
         workspace: DisposableWorkspace,
-        loaded: LoadedBenchmarkTask,
+        loaded: LoadedTaskDefinition,
         execution_environment: WindowsExecutionEnvironment,
-        evaluator: Path,
+        evaluator: Path | None,
         stage: Path,
         run_id: str,
         attempt: int,
@@ -416,6 +465,10 @@ class VerificationService:
             statuses[spec.gate] = gate.status
             results.append(self._store_gate(run_id, attempt, gate))
         if self.features.enable_hypothesis and loaded.task.property_profile is not None:
+            if evaluator is None:
+                raise VerificationServiceError(
+                    "property verification requires an evaluator-owned profile"
+                )
             gate = self._run_property(
                 workspace,
                 loaded,
@@ -431,9 +484,9 @@ class VerificationService:
     def _run_candidate(
         self,
         workspace: DisposableWorkspace,
-        loaded: LoadedBenchmarkTask,
+        loaded: LoadedTaskDefinition,
         execution_environment: WindowsExecutionEnvironment,
-        evaluator: Path,
+        evaluator: Path | None,
         stage: Path,
         baseline: dict[str, TestInventory],
         baseline_status: dict[str, str],
@@ -494,6 +547,10 @@ class VerificationService:
             required_failed = not gate.passed
 
         if self.features.enable_hypothesis and loaded.task.property_profile is not None:
+            if evaluator is None:
+                raise VerificationServiceError(
+                    "property verification requires an evaluator-owned profile"
+                )
             if required_failed:
                 results.append(
                     self._store_gate(
@@ -604,7 +661,7 @@ class VerificationService:
         return results, regression
 
     def _skipped_candidate_gates(
-        self, loaded: LoadedBenchmarkTask, *, run_id: str, attempt: int
+        self, loaded: LoadedTaskDefinition, *, run_id: str, attempt: int
     ) -> list[NormalizedGate]:
         names: list[tuple[str, bool]] = [(spec.gate, True) for spec in self._standard_specs(loaded)]
         if self.features.enable_hypothesis and loaded.task.property_profile is not None:
@@ -631,7 +688,7 @@ class VerificationService:
     def _run_property(
         self,
         workspace: DisposableWorkspace,
-        loaded: LoadedBenchmarkTask,
+        loaded: LoadedTaskDefinition,
         execution_environment: WindowsExecutionEnvironment,
         evaluator: Path,
         stage: Path,

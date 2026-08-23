@@ -29,7 +29,16 @@ class Repository(ResearchSchema):
     source: Annotated[str, StringConstraints(min_length=1, max_length=2000)]
     base_commit: CommitSha
     python_version: Annotated[str, StringConstraints(min_length=1, max_length=50)] | None = None
-    test_command: Command
+    test_command: Command | None = None
+    source_type: Literal["local", "benchmark", "external_git"] = "local"
+    repository_url: str | None = None
+    default_branch: ShortText | None = None
+    primary_language: ShortText | None = None
+    registered_at: datetime | None = None
+    managed_source: str | None = None
+    trusted_for_local_execution: bool = False
+    trust_confirmed_at: datetime | None = None
+    repository_metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class Task(ResearchSchema):
@@ -38,14 +47,18 @@ class Task(ResearchSchema):
     title: ShortText
     description: Annotated[str, StringConstraints(min_length=1, max_length=10_000)]
     task_category: Literal["bug_fix", "refactor"]
-    difficulty: Literal["easy", "medium", "hard"]
-    allowed_paths: Annotated[list[str], Field(min_length=1, max_length=30)]
-    forbidden_paths: Annotated[list[str], Field(min_length=1, max_length=30)]
-    visible_test_command: Command
-    hidden_test_command: Command
+    difficulty: Literal["easy", "medium", "hard", "unspecified"]
+    allowed_paths: Annotated[list[str], Field(max_length=30)]
+    forbidden_paths: Annotated[list[str], Field(max_length=30)]
+    visible_test_command: Command | None = None
+    hidden_test_command: Command | None = None
     property_profile: ShortText | None = None
     symbolic_profile: ShortText | None = None
     known_correct_patch: str | None = None
+    task_source: Literal["benchmark", "external"] = "benchmark"
+    verification_configured: bool = True
+    definition_path: str | None = None
+    created_at: datetime | None = None
 
     @field_validator("allowed_paths", "forbidden_paths")
     @classmethod

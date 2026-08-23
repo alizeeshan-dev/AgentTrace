@@ -138,20 +138,29 @@ class RunTraceExporter:
                     "symbolic_profile": task.symbolic_profile,
                     "task_category": task.task_category,
                     "task_id": task.task_id,
+                    "task_source": task.task_source,
                     "title": task.title,
+                    "verification_configured": task.verification_configured,
                     "visible_test_command": task.visible_test_command,
                 }
             ),
             repository=self._redact_mapping(
                 {
                     "base_commit": repository.base_commit,
+                    "default_branch": repository.default_branch,
                     "name": repository.name,
+                    "primary_language": repository.primary_language,
                     "python_version": repository.python_version,
                     "repository_id": repository.repository_id,
+                    "repository_url": repository.repository_url,
                     "source_fingerprint": hashlib.sha256(
                         repository.source.encode("utf-8", errors="replace")
                     ).hexdigest(),
+                    "source_type": repository.source_type,
                     "test_command": repository.test_command,
+                    "trusted_for_local_execution": (
+                        repository.trusted_for_local_execution
+                    ),
                 }
             ),
             benchmark_quality=(

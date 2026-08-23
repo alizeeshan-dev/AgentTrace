@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     workspace_root: Path | None = None
     artifact_root: Path | None = None
     verification_root: Path | None = None
+    external_repository_root: Path | None = None
     max_file_size_bytes: int = Field(default=1_048_576, ge=1, le=16_777_216)
     max_artifact_size_bytes: int = Field(default=16_777_216, ge=1, le=268_435_456)
     gemini_api_key: SecretStr | None = Field(
@@ -50,15 +51,23 @@ class Settings(BaseSettings):
         verification = validate_runtime_root(
             self.effective_verification_root, field_name="verification_root"
         ).resolve(strict=False)
+        external_repositories = validate_runtime_root(
+            self.effective_external_repository_root,
+            field_name="external_repository_root",
+        ).resolve(strict=False)
         roots = {
             "workspace": workspace,
             "artifact": artifacts,
             "verification": verification,
+            "external_repository": external_repositories,
         }
         pairs = (
             ("workspace", "artifact"),
             ("workspace", "verification"),
             ("artifact", "verification"),
+            ("workspace", "external_repository"),
+            ("artifact", "external_repository"),
+            ("verification", "external_repository"),
         )
         for first, second in pairs:
             if paths_overlap(roots[first], roots[second]):
@@ -86,6 +95,11 @@ class Settings(BaseSettings):
     @property
     def effective_verification_root(self) -> Path:
         return self.verification_root or self.state_dir / "verification"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def effective_external_repository_root(self) -> Path:
+        return self.external_repository_root or self.state_dir / "external_repositories"
 
 
 @lru_cache

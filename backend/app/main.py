@@ -6,7 +6,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from app.api import build_api_router
 from app.config import Settings, get_settings
 from app.db import create_database_engine, init_database, make_session_factory
 from app.logging import configure_logging
@@ -38,10 +40,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     application.state.settings = application_settings
+    if application_settings.environment != "production":
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+            allow_headers=["Content-Type"],
+        )
 
     @application.get("/health", tags=["service"])
     def health() -> dict[str, str]:
         return {"status": "ok", "service": application_settings.app_name}
+
+    application.include_router(build_api_router(application_settings))
 
     return application
 

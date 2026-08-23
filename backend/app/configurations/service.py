@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 from app.agent.budgets import AgentBudgets
 from app.agent.provider import ModelProvider
 from app.agent.service import AgentRunService
-from app.benchmark.loader import LoadedBenchmarkTask, load_benchmark_task
 from app.cegis.service import ConfigurationCService
 from app.config import Settings
 from app.db.models import Run
+from app.tasks import LoadedTaskDefinition, load_task_definition
 from app.verification.service import VerificationFeatures, VerificationService
 
 from .models import (
@@ -39,7 +39,7 @@ class ConfigurationExecution:
     manifest_path: Path
     benchmark_root: Path | None
     run_id: str
-    loaded_task: LoadedBenchmarkTask
+    loaded_task: LoadedTaskDefinition
     configuration: ExperimentalConfiguration
     model: ModelConfiguration
     budgets: AgentBudgets
@@ -164,7 +164,7 @@ class ConfigurationRunner:
         budgets: AgentBudgets | None = None,
         benchmark_root: str | Path | None = None,
     ) -> CommonRunResult:
-        loaded = load_benchmark_task(manifest_path, benchmark_root=benchmark_root)
+        loaded = load_task_definition(manifest_path, benchmark_root=benchmark_root)
         if self.provider_name is not None and model.provider != self.provider_name:
             raise ConfigurationExecutionError(
                 "configured provider identity does not match the active provider adapter"

@@ -31,7 +31,6 @@ from app.agent.provider import (
 )
 from app.agent.tools import ConstrainedRepositoryTools, ToolInputError
 from app.artifacts import ArtifactReference, ArtifactStore
-from app.benchmark.loader import LoadedBenchmarkTask, load_benchmark_task
 from app.config import Settings
 from app.db.models import PatchArtifact as PatchArtifactRecord
 from app.db.models import Repository as RepositoryRecord
@@ -41,6 +40,7 @@ from app.repositories.path_policy import PathPolicyError
 from app.repositories.workspace import WorkspaceManager
 from app.schemas.research import PatchArtifact
 from app.services.workspaces import LoadedTaskWorkspace, TaskWorkspaceLoader
+from app.tasks import LoadedTaskDefinition, load_task_definition
 
 ConfigurationId = Literal["A", "B"]
 _TOOLS = ["list_tree", "read_file", "search_code"]
@@ -146,7 +146,7 @@ class AgentRunService:
     ) -> AgentRunResult:
         if self.session.get(RunRecord, run_id) is not None:
             raise AgentRunError(f"run_id already exists: {run_id}")
-        loaded = load_benchmark_task(manifest_path, benchmark_root=benchmark_root)
+        loaded = load_task_definition(manifest_path, benchmark_root=benchmark_root)
         task, repository = self._require_persisted_binding(loaded)
         started_at = datetime.now(UTC)
         started_clock = monotonic()
@@ -438,7 +438,7 @@ class AgentRunService:
         return patch_schema, patch_reference, status, failure_category
 
     def _require_persisted_binding(
-        self, loaded: LoadedBenchmarkTask
+        self, loaded: LoadedTaskDefinition
     ) -> tuple[TaskRecord, RepositoryRecord]:
         task = self.session.get(TaskRecord, loaded.task.task_id)
         if task is None:
@@ -446,8 +446,15 @@ class AgentRunService:
         repository = self.session.get(RepositoryRecord, task.repository_id)
         if repository is None:
             raise AgentRunError("persisted task repository is missing")
+        if (
+            repository.source_type == "external_git"
+            and not repository.trusted_for_local_execution
+        ):
+            raise AgentRunError(
+                "External repository execution is blocked until explicit trust is granted"
+            )
         if loaded.repository_path is None:
-            raise NotImplementedError("Phase 5 supports local benchmark repositories only")
+            raise AgentRunError("agent runs require a locally managed Git repository")
         try:
             source = Path(repository.source).resolve(strict=True)
         except (OSError, RuntimeError) as error:

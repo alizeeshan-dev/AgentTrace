@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Protocol
 
 from pydantic import Field, JsonValue, StringConstraints, field_validator, model_validator
 
 from app.agent.budgets import AgentBudgets
-from app.benchmark.schema import BenchmarkTask
 from app.schemas.common import FilesystemIdentifier, ResearchSchema
 from app.security import find_credential_key
 
@@ -183,14 +182,24 @@ class EffectiveResearchTechniques(ResearchSchema):
     disabled_reasons: dict[str, str] = Field(default_factory=dict)
 
 
+class TaskTechniqueSupport(Protocol):
+    task_source: str
+    property_profile: str | None
+    symbolic_profile: str | None
+
+
 def resolve_research_techniques(
     configuration: ExperimentalConfiguration,
-    task: BenchmarkTask,
+    task: TaskTechniqueSupport,
 ) -> EffectiveResearchTechniques:
     """Disable task-inapplicable optional techniques without changing condition identity."""
 
     requested = configuration.techniques
     disabled: dict[str, str] = {}
+    # SBFL eligibility is resolved at D execution time because external tasks
+    # may eventually have a compatible persisted spectrum. Absence degrades to
+    # an explicit unavailable-evidence record rather than failing the run.
+    sbfl = requested.enable_sbfl
     hypothesis = requested.enable_hypothesis and task.property_profile is not None
     crosshair = requested.enable_crosshair and task.symbolic_profile is not None
     if requested.enable_hypothesis and not hypothesis:
@@ -200,7 +209,7 @@ def resolve_research_techniques(
     return EffectiveResearchTechniques(
         requested=requested,
         effective=ResearchTechniques(
-            enable_sbfl=requested.enable_sbfl,
+            enable_sbfl=sbfl,
             enable_hypothesis=hypothesis,
             enable_crosshair=crosshair,
         ),

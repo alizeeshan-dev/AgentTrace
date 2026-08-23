@@ -41,6 +41,7 @@ class KnownFault(ResearchSchema):
 
 
 class BenchmarkTask(ResearchSchema):
+    task_source: Literal["benchmark"] = "benchmark"
     """Versioned, portable definition of one immutable benchmark task.
 
     Hidden commands and evaluator artifacts are deliberately kept in this

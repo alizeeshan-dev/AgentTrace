@@ -17,6 +17,7 @@ def run_git(
     *,
     cwd: Path | None = None,
     timeout_seconds: int = 30,
+    max_output_chars: int = 1_000_000,
 ) -> str:
     """Run Git with a fixed argv boundary and return stripped stdout.
 
@@ -26,6 +27,8 @@ def run_git(
 
     if not arguments or any(not isinstance(argument, str) for argument in arguments):
         raise ValueError("Git arguments must be a non-empty sequence of strings")
+    if max_output_chars < 1:
+        raise ValueError("max_output_chars must be positive")
     try:
         environment = os.environ.copy()
         environment.update(
@@ -63,5 +66,9 @@ def run_git(
 
     if completed.returncode != 0:
         detail = completed.stderr.strip() or "unknown Git error"
+        if len(detail) > 4_000:
+            detail = f"{detail[:4_000]}...[truncated]"
         raise GitError(f"git {arguments[0]} failed: {detail}")
+    if len(completed.stdout) > max_output_chars:
+        raise GitError(f"git {arguments[0]} output exceeded its configured bound")
     return completed.stdout.strip()

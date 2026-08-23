@@ -1,4 +1,4 @@
-"""Load persisted benchmark tasks into disposable, policy-bound workspaces."""
+"""Load persisted tasks into disposable, policy-bound workspaces."""
 
 from __future__ import annotations
 
@@ -47,9 +47,8 @@ class TaskWorkspaceLoader:
     ) -> LoadedTaskWorkspace:
         """Clone the recorded base and bind task write/read policy to it.
 
-        Hidden evaluator locations are an explicit input because Phase 1 keeps
-        them in a separately hashed evaluator/tool-policy artifact, not in the
-        portable task manifest's write-only ``forbidden_paths`` field.
+        Hidden evaluator locations are explicit for benchmark tasks. External
+        tasks have no AgentTrace hidden evaluator and pass an empty collection.
         """
 
         task = self.session.get(Task, task_id)

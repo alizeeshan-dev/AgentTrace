@@ -31,6 +31,15 @@ class Repository(Base):
     base_commit: Mapped[str] = mapped_column(String(40), index=True)
     python_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     test_command: Mapped[str] = mapped_column(Text)
+    source_type: Mapped[str] = mapped_column(String(30), default="local")
+    repository_url: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
+    default_branch: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    primary_language: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    registered_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    managed_source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trusted_for_local_execution: Mapped[bool] = mapped_column(Boolean, default=False)
+    trust_confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    repository_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
 class Task(Base):
@@ -51,6 +60,10 @@ class Task(Base):
     property_profile: Mapped[str | None] = mapped_column(String(200), nullable=True)
     symbolic_profile: Mapped[str | None] = mapped_column(String(200), nullable=True)
     known_correct_patch: Mapped[str | None] = mapped_column(Text, nullable=True)
+    task_source: Mapped[str] = mapped_column(String(30), default="benchmark", index=True)
+    verification_configured: Mapped[bool] = mapped_column(Boolean, default=True)
+    definition_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class BenchmarkQuality(Base):

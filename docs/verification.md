@@ -1,9 +1,11 @@
 # Deterministic Windows verification boundary
 
-AgentTrace executes repository code natively on Windows and only for trusted,
-controlled, pre-qualified benchmark repositories. Native subprocess isolation is
-weaker than VM/container isolation; the verifier is not a sandbox for arbitrary
-untrusted third-party code.
+AgentTrace executes repository code natively on Windows. Benchmark repositories
+are trusted, controlled, and pre-qualified. Public HTTPS Git repositories may be
+registered as immutable snapshots, but their code remains blocked until the
+user explicitly acknowledges local-execution trust. Native subprocess isolation
+is weaker than VM/container isolation; the verifier is not a sandbox for
+arbitrary untrusted third-party code.
 
 For each baseline or candidate verification, AgentTrace creates a disposable
 Git workspace at the task's recorded base commit. The original benchmark
@@ -15,8 +17,11 @@ The runner supplies explicit argument arrays and an explicit workspace working
 directory, enforces hard timeouts, terminates timed-out process trees, bounds
 captured output, and passes a sanitized allowlisted environment. Provider API
 keys, authorization values, `.env` contents, unrelated host secrets, and the
-parent process environment are not forwarded to benchmark processes. Hidden
+parent process environment are not forwarded to repository processes. Hidden
 tests remain evaluator-owned and outside agent-readable repository paths.
+External tasks do not acquire hidden tests merely by registration; only their
+explicitly configured pytest command is used. If no command is configured, the
+result is recorded as `verification_not_configured`, never as a pass.
 
 The required candidate gates run in fail-fast order:
 
