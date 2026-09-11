@@ -148,7 +148,7 @@ No hypothesis is considered supported merely because one example improves. The e
 - Provide reproducible local setup and experiment instructions, architecture documentation, and automated tests for important logic.
 - Keep generated repositories, logs, model responses, temporary artifacts, and secrets out of version control except for deliberate sanitized fixtures.
 
-The concise, trackable form of these requirements is in [MVP checklist](mvp-checklist.md).
+These requirements define the minimum research system and remain subject to the change-control rules below.
 
 ## 8. Optional extensions
 

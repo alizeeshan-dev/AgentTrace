@@ -1,6 +1,6 @@
-# AgentTrace Phase 1 Experiment Contract
+# AgentTrace Experiment Contract
 
-This directory freezes the benchmark and measurement methodology before agent implementation or experimental results exist.
+This directory defines the benchmark and measurement methodology independently of implementation and experimental outcomes.
 
 - [Experimental methodology](experimental-methodology.md) defines units, controls, held-out evaluation, run order, missing-data handling, and planned comparisons.
 - [Benchmark task format](task-format.md) defines field semantics and path/test visibility rules.
@@ -9,13 +9,12 @@ This directory freezes the benchmark and measurement methodology before agent im
 - [Metrics](metrics.md) fixes primary, secondary, and diagnostic measurements and their denominators.
 - [Failure taxonomy](failure-taxonomy.md) fixes run-level labels and assignment rules.
 - [Task selection](task-selection.md) defines benchmark admission and exclusion criteria.
-- [Pilot-task concepts](pilot-task-concepts.md) supplies candidates for later fixture construction; they are not admitted benchmark tasks.
 
-These documents refine the [Phase 0 project charter](../project-charter.md) without implementing the agent, native verifier, database, API, or interface.
+These documents refine the [project charter](../project-charter.md) and define the research protocol used by the implementation.
 
 ## Freeze and change control
 
-This Phase 1 contract is frozen as version `1.0` on 2026-08-20, before any AgentTrace experimental result was observed. The two JSON Schemas' `$id` values identify benchmark-task format version 1 and corpus-lock format version 1.
+This contract is frozen as version `1.0` on 2026-08-20, before any AgentTrace experimental result was observed. The two JSON Schemas' `$id` values identify benchmark-task format version 1 and corpus-lock format version 1.
 
 After data collection begins, a change to task eligibility, schema semantics, hidden-test visibility, outcomes, denominators, failure-label rules, configuration limits, or planned comparisons requires:
 

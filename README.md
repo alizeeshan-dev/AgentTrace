@@ -9,7 +9,7 @@
 ![React](https://img.shields.io/badge/UI-React_19-149ECA?style=flat-square&logo=react&logoColor=white)
 ![Platform](https://img.shields.io/badge/Execution-Windows_native-0078D4?style=flat-square&logo=windows&logoColor=white)
 
-[Research Contract](docs/project-charter.md) · [Experimental Methodology](docs/experiment/experimental-methodology.md) · [Metrics](docs/experiment/metrics.md) · [Project Specification](agentrace.md)
+[Research Contract](docs/project-charter.md) · [Experimental Methodology](docs/experiment/experimental-methodology.md) · [Metrics](docs/experiment/metrics.md) · [Benchmark Evidence](docs/benchmark-evidence.md)
 
 </div>
 
@@ -163,7 +163,7 @@ The following values describe benchmark construction and fault-localization vali
 | Ochiai known-fault Top-5 containment                                                                                          |             15/15 (100%) |
 | Ochiai known-fault Top-10 containment                                                                                         |             15/15 (100%) |
 
-The benchmark invariants are parameterized in [`backend/tests/test_benchmark_tasks.py`](backend/tests/test_benchmark_tasks.py). The full inventory and localization summary are recorded in [`docs/phase-10-readiness.md`](docs/phase-10-readiness.md).
+The benchmark invariants are parameterized in [`backend/tests/test_benchmark_tasks.py`](backend/tests/test_benchmark_tasks.py). The full inventory and localization summary are recorded in [`docs/benchmark-evidence.md`](docs/benchmark-evidence.md).
 
 Completed pytest-gremlins scores are not yet available, so this README does not report a mutation score. The intended main matrix is 15 tasks × A/B/C/D = 60 runs, but [`experiments/main.example.yaml`](experiments/main.example.yaml) remains an unfrozen template and `experiments/main.yaml` does not exist. No frozen real-model resolution, regression, repair, cost, token, or latency findings are available. Earlier fake-provider runs are integration fixtures, not model-performance evidence.
 
@@ -200,6 +200,5 @@ AgentTrace/
 ├── experiments/                   # pilot and unfrozen experiment configurations
 ├── frontend/                      # React/TypeScript research console
 ├── .env.example                   # secret-free configuration template
-├── agentrace.md                   # complete project specification
 └── pyproject.toml                 # Python package and tool configuration
 ```
